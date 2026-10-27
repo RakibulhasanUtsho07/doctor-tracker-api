@@ -9,6 +9,9 @@ import { HttpError } from "./lib/http-error.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { createAuthRouter } from "./routes/auth.js";
+import { createDoctorRouter } from "./routes/doctors.js";
+import type { DoctorRepository } from "./doctors/repository.js";
+import { MongooseDoctorRepository } from "./doctors/repository.js";
 
 function originGuard(allowedOrigins: string[]): RequestHandler {
   const allowlist = new Set(allowedOrigins);
@@ -24,7 +27,8 @@ function originGuard(allowedOrigins: string[]): RequestHandler {
 
 export function createApp(
   config: AppConfig,
-  authRepository: AuthRepository = new MongooseAuthRepository()
+  authRepository: AuthRepository = new MongooseAuthRepository(),
+  doctorRepository: DoctorRepository = new MongooseDoctorRepository()
 ) {
   const app = express();
   app.disable("x-powered-by");
@@ -63,6 +67,7 @@ export function createApp(
   });
 
   app.use("/api/v1/auth", createAuthRouter(config, authRepository));
+  app.use("/api/v1/doctors", createDoctorRouter(config, authRepository, doctorRepository));
 
   app.use((_req, _res, next) => {
     next(new HttpError(404, "NOT_FOUND", "Route not found."));

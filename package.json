@@ -9,8 +9,8 @@
     "start": "node dist/server.js",
     "lint": "node scripts/lint.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
-    "test": "node --import tsx --test test/app.test.ts test/auth.test.ts",
-    "test:integration": "node --import tsx --test test/auth-db.integration.test.ts",
+    "test": "node --import tsx --test test/app.test.ts test/auth.test.ts test/doctors.test.ts",
+    "test:integration": "node --import tsx --test test/auth-db.integration.test.ts test/doctor-db.integration.test.ts",
     "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
