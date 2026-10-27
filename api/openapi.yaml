@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Doctor Tracker API
   version: 1.0.0
-  description: Planning contract only; route presence must be verified separately.
+  description: Incrementally implemented API. Health, readiness, authentication and doctor CRUD routes are implemented; patient and dashboard routes remain planned.
 servers:
   - url: http://localhost:4000/api/v1
 security:
@@ -92,12 +92,15 @@ paths:
       parameters:
         - { in: query, name: search, schema: { type: string, maxLength: 100 } }
         - { in: query, name: specialization, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: hospital, schema: { type: string, maxLength: 160 } }
         - { in: query, name: from, schema: { type: string, format: date } }
         - { in: query, name: to, schema: { type: string, format: date } }
         - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
         - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
       responses:
-        '200': { description: Paginated doctor list }
+        '200': { description: Paginated doctor list; limit is capped at 100 and deep offsets are bounded }
+        '400': { description: Invalid filters, dates or pagination }
+        '401': { description: Unauthenticated }
     post:
       summary: Create doctor
       requestBody:
@@ -107,6 +110,10 @@ paths:
             schema: { $ref: '#/components/schemas/DoctorInput' }
       responses:
         '201': { description: Created }
+        '400': { description: Invalid input; mutation fields are allowlisted }
+        '401': { description: Unauthenticated }
+        '403': { description: CSRF token is invalid }
+        '409': { description: A doctor with this normalized email already exists }
   /doctors/{doctorId}:
     parameters:
       - { in: path, name: doctorId, required: true, schema: { type: string } }
@@ -114,6 +121,8 @@ paths:
       summary: Read doctor
       responses:
         '200': { description: Doctor detail }
+        '400': { description: Invalid doctor identifier }
+        '401': { description: Unauthenticated }
         '404': { description: Not found }
     patch:
       summary: Update doctor
@@ -121,9 +130,14 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/DoctorInput' }
+            schema: { $ref: '#/components/schemas/DoctorPatch' }
       responses:
         '200': { description: Updated }
+        '400': { description: Invalid patch or doctor identifier }
+        '401': { description: Unauthenticated }
+        '403': { description: CSRF token is invalid }
+        '404': { description: Not found }
+        '409': { description: A doctor with this normalized email already exists }
   /doctors/{doctorId}/patients:
     get:
       summary: List patients for a doctor
@@ -198,6 +212,16 @@ components:
       type: object
       additionalProperties: false
       required: [name, specialization, hospital, phone, email]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+        specialization: { type: string, minLength: 2, maxLength: 120 }
+        hospital: { type: string, minLength: 2, maxLength: 160 }
+        phone: { type: string, minLength: 5, maxLength: 30 }
+        email: { type: string, format: email, maxLength: 254 }
+    DoctorPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
       properties:
         name: { type: string, minLength: 2, maxLength: 120 }
         specialization: { type: string, minLength: 2, maxLength: 120 }
