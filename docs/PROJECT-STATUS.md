@@ -1,9 +1,9 @@
 # Project Status
 Last verified: 2026-10-27
-- Branches: main (release), dev (integration), rakibul-hasan (work).
-- Documentation PR: https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/1 — draft/open; not merged.
-- Current next task: [Step 1 API foundation](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/issues/2).
-- Follow-on tasks: [auth](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/issues/3), [doctor API](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/issues/4), [patient API](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/issues/5), [dashboard aggregation](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/issues/6).
-## Verified progress
-Documentation baseline is committed on rakibul-hasan; review is pending. Functional implementation: 0% verified. Test script remains a placeholder, and CI status is not verified. Authentication, routes, aggregates and deployment are not complete.
-See docs/13-github-workflow-and-status.md for the full status record and docs/11-traceability-and-acceptance.md for requirement evidence.
+- Documentation PR #1 has been merged into dev.
+- API foundation is being implemented on rakibul-hasan.
+- Step 1 includes config validation, Express bootstrap, liveness endpoint, request IDs, CORS allowlist, security headers, JSON size limit, consistent errors and automated tests.
+- Domain APIs, authentication and MongoDB connectivity are outside this step.
+- Mark checks passing only from CI/local evidence for the exact commit. The coding environment could not clone GitHub because network DNS resolution was unavailable, so local execution has not been reported as successful.
+## Next
+Open and verify the Step 1 PR against dev; after CI is green, proceed to authentication/authorization issue #3.
