@@ -56,10 +56,9 @@ function assertProductionMongoTls(uri: string): void {
     throw new Error("Production MONGODB_URI must be a valid MongoDB connection string.");
   }
 
-  const tlsOptions = [
-    ...parsed.searchParams.getAll("tls"),
-    ...parsed.searchParams.getAll("ssl")
-  ].map((value) => value.toLowerCase());
+  const tlsOptions = [...parsed.searchParams.entries()]
+    .filter(([key]) => key.toLowerCase() === "tls" || key.toLowerCase() === "ssl")
+    .map(([, value]) => value.toLowerCase());
 
   if (tlsOptions.some((value) => value !== "true")) {
     throw new Error("Production MONGODB_URI must not disable TLS; any TLS option must be true.");
