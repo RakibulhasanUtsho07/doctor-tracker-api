@@ -7,7 +7,8 @@ Secure REST API for the Doctor Tracker assignment. Stack: Node.js, Express 5, Ty
 - Step 2 admin authentication is merged to `dev` via [PR #11](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/11). [CI run #28](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/actions/runs/40479777698) passed lint, typecheck, 15/15 HTTP/auth tests, 1/1 MongoDB-backed session integration test and production build.
 - Step 3 Doctor API merged to `dev` via [PR #13](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/13). [CI run #36](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/actions/runs/40492089848) passed lint, typecheck, 18/18 HTTP/unit tests, 2/2 MongoDB integration tests and production build on tested head `57554f0ad604acd9acf2e63bb7e6a1adeca5ae70`.
 - Step 4 Patient API merged to `dev` via [PR #15](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/15). [CI run #42](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/actions/runs/40493600732) passed lint, typecheck, 21/21 HTTP/unit tests, 3/3 MongoDB integration tests and production build on tested head `feeaf432337dfad0d8544dab4f78c9d83a4204eb`.
-- Dashboard analytics and frontend functional UI are not implemented yet.
+- Step 5 dashboard aggregation merged to `dev` via [PR #17](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/17). [CI run #50](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/actions/runs/40494982241) passed lint, typecheck, 24/24 HTTP/unit tests, 4/4 MongoDB integration tests and build on tested head `f03dfd18a16f0b5d3ccbe0f18b443524880a1619`.
+- Frontend functional UI is not implemented yet.
 
 ## Requirements
 - Node.js 22+
@@ -47,6 +48,7 @@ The command refuses to overwrite an existing account. Remove the two bootstrap v
 - `GET /api/v1/patients/:patientId` — patient detail.
 - `PATCH /api/v1/patients/:patientId` — CSRF-protected edit/reassign to an existing doctor.
 - `DELETE /api/v1/patients/:patientId` — CSRF-protected permanent delete.
+- `GET /api/v1/dashboard/summary` — admin-only all-time totals, current linked patients per doctor, and daily UTC creation counts. Optional `from`/`to` dates are inclusive; default last 30 UTC days, max 366 days.
 
 Browser requests must use credentials (e.g. `fetch(url, { credentials: "include" })`). Keep the CSRF token in application memory and send it as `X-CSRF-Token` for state-changing operations. Never put the session bearer in localStorage.
 
@@ -59,8 +61,8 @@ Development cookies use `SameSite=Strict`; production cookies use `Secure; SameS
 - `pnpm dev` — watch-mode server.
 - `pnpm lint` — repository source-hygiene check; this is not a full ESLint replacement.
 - `pnpm typecheck` — checks source, tests and scripts.
-- `pnpm test` — HTTP/config/auth/doctor/patient tests using fake repositories (21 tests at Step 4 acceptance).
-- `pnpm test:integration` — MongoDB-backed auth/session, doctor and patient API tests. Synthetic tests seed 300 doctors and 150 patients and emit query-plan evidence; requires a disposable DB whose name contains `test`.
+- `pnpm test` — HTTP/config/auth/doctor/patient/dashboard tests using fake repositories (24 tests at Step 5 acceptance).
+- `pnpm test:integration` — MongoDB-backed auth/session, doctor, patient and dashboard API tests. Synthetic tests seed 300 doctors, 150 patients, plus isolated dashboard fixtures (303 doctors/154 patients) and emit query-plan evidence; requires a disposable DB whose name contains `test`.
 - `pnpm build` — production compile.
 - `pnpm check` — lint, typecheck, unit tests and build.
 
