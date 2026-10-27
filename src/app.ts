@@ -11,6 +11,9 @@ import { requestIdMiddleware } from "./middleware/request-id.js";
 import { createAuthRouter } from "./routes/auth.js";
 import { createDoctorRouter } from "./routes/doctors.js";
 import { createPatientRouter, createDoctorPatientRouter } from "./routes/patients.js";
+import { createDashboardRouter } from "./routes/dashboard.js";
+import type { DashboardRepository } from "./dashboard/repository.js";
+import { MongooseDashboardRepository } from "./dashboard/repository.js";
 import type { PatientRepository } from "./patients/repository.js";
 import { MongoosePatientRepository } from "./patients/repository.js";
 import type { DoctorRepository } from "./doctors/repository.js";
@@ -32,7 +35,8 @@ export function createApp(
   config: AppConfig,
   authRepository: AuthRepository = new MongooseAuthRepository(),
   doctorRepository: DoctorRepository = new MongooseDoctorRepository(),
-  patientRepository: PatientRepository = new MongoosePatientRepository()
+  patientRepository: PatientRepository = new MongoosePatientRepository(),
+  dashboardRepository: DashboardRepository = new MongooseDashboardRepository()
 ) {
   const app = express();
   app.disable("x-powered-by");
@@ -71,6 +75,7 @@ export function createApp(
   });
 
   app.use("/api/v1/auth", createAuthRouter(config, authRepository));
+  app.use("/api/v1/dashboard", createDashboardRouter(config, authRepository, dashboardRepository));
   app.use("/api/v1/doctors", createDoctorPatientRouter(config, authRepository, patientRepository, doctorRepository));
   app.use("/api/v1/doctors", createDoctorRouter(config, authRepository, doctorRepository));
   app.use("/api/v1/patients", createPatientRouter(config, authRepository, patientRepository, doctorRepository));

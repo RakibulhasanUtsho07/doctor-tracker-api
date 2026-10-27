@@ -31,4 +31,10 @@ Privacy: minimum necessary data, synthetic tests/demo and no patient details in 
 - Patient creation and reassignment validate that the target doctor exists. Doctor association changes and destructive mutations require an active admin session and CSRF token.
 - Admin provisioning uses the existing one-time bootstrap flow; there is no public registration endpoint.
 
+## Dashboard aggregation semantics
+- GET /dashboard/summary reports current all-time doctor and patient totals, linked patient counts for every doctor (including zero counts), and daily doctor/patient creation counts.
+- The optional from/to range uses inclusive UTC calendar dates, defaults to the last 30 UTC calendar days including today, rejects future dates, and is limited to 366 days. Daily results include zero-count days.
+- Date-range filters affect only daily creation statistics, not all-time totals or current patient-to-doctor counts. Detached patients remain in total patients but are not counted under a doctor.
+- Server-side MongoDB aggregates and projections are used; no full collections are sent to the browser.
+
 The implementation does not infer a controlled clinical taxonomy or introduce features outside the assignment. Any future soft-delete/retention policy or controlled condition vocabulary needs an explicit product/privacy decision.

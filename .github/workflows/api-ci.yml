@@ -53,7 +53,7 @@ jobs:
         run: pnpm typecheck
       - name: HTTP and authentication unit tests
         run: pnpm test
-      - name: MongoDB domain/auth integration tests
+      - name: MongoDB domain/auth/dashboard integration tests
         run: pnpm test:integration
       - name: Production build
         run: pnpm build
