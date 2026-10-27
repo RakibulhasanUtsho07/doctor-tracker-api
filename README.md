@@ -3,7 +3,7 @@
 Secure REST API for the Doctor Tracker assignment. Stack: Node.js, Express, TypeScript, Mongoose and MongoDB.
 
 ## Current status
-The API foundation has passed CI and was merged into `dev` via PR #7 (foundation) and PR #8 (server timeouts/OpenAPI errors). The merged scope includes environment validation, liveness, security middleware, request IDs, bounded HTTP timeouts, consistent error envelopes, and configuration/HTTP tests. Authentication and domain CRUD endpoints are subsequent steps.
+The API foundation has passed CI and was merged into `dev` via [PR #7](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/7), [PR #8](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/8) and [PR #9](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/9). [CI run #13](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/actions/runs/40477435393) passed source hygiene lint, typecheck, 9/9 HTTP/config tests and production build. Authentication and doctor/patient CRUD are subsequent steps.
 
 ## Prerequisites
 - Node.js 22 or another supported LTS runtime.
@@ -20,7 +20,7 @@ In PowerShell, use `Copy-Item .env.example .env`. Edit local values only and nev
 
 ## Commands
 - `pnpm dev` — watch-mode development server.
-- `pnpm lint` — project-local source hygiene checks (trailing whitespace, final newline, tabs at line start, debug logging and debugger statements). This is a small repository guard, not a full ESLint replacement.
+- `pnpm lint` — project-local source hygiene checks (trailing whitespace, final newline, leading tabs, debug `console.log` calls and `debugger` statements). This is a small repository guard, not a full ESLint replacement.
 - `pnpm typecheck` — TypeScript validation.
 - `pnpm test` — automated HTTP/config tests.
 - `pnpm build` — compile to `dist/`.
