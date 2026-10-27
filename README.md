@@ -2,8 +2,10 @@
 
 Secure REST API for the Doctor Tracker assignment. Stack: Node.js, Express 5, TypeScript, Mongoose and MongoDB.
 
-## Current scope
-Step 1 established config validation, Express security middleware, health checks, request IDs, error envelopes, request timeouts and CI. Step 2 adds database-backed administrator sessions, password hashing, login/logout/current-user, CSRF validation, login throttling and one-time administrator bootstrap. Doctor/patient CRUD and dashboard analytics remain future steps.
+## Verified milestones
+- Step 1 API foundation is merged to `dev` via [PRs #7–#9](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pulls). [CI run #13](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/actions/runs/40477435393) passed source hygiene lint, typecheck, 9/9 tests and build.
+- Step 2 admin authentication is merged to `dev` via [PR #11](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/11). [CI run #28](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/actions/runs/40479777698) passed lint, typecheck, 15/15 HTTP/auth tests, 1/1 MongoDB-backed session integration test and production build.
+- Doctor/patient CRUD and dashboard analytics are not implemented yet.
 
 ## Requirements
 - Node.js 22+
@@ -17,35 +19,36 @@ pnpm install --frozen-lockfile
 cp .env.example .env
 pnpm dev
 ```
-PowerShell: `Copy-Item .env.example .env`. Configure the MongoDB URI locally; the server will fail closed if the database cannot be reached. Do not commit `.env` or real secrets.
+PowerShell: `Copy-Item .env.example .env`. Configure MongoDB locally; the server fails closed if the database cannot be reached. Never commit `.env` or real secrets.
 
 ## Create the first administrator
 There is no public registration endpoint and no default password. Set `ADMIN_EMAIL` and a strong `ADMIN_PASSWORD` (14–128 characters) through a secure one-time environment injection, then run:
 ```bash
 pnpm bootstrap:admin
 ```
-The command refuses to overwrite an existing account. Remove the two bootstrap variables immediately afterward; they are not runtime settings. Do not place real credentials in source files, PRs or shell transcripts.
+The command refuses to overwrite an existing account. Remove the two bootstrap variables immediately afterwards; they are not runtime settings. Never put real credentials into source files, PRs or issue comments.
 
-## API routes
+## Implemented API routes
 - `GET /api/v1/health` — process liveness.
-- `GET /api/v1/ready` — database readiness.
-- `POST /api/v1/auth/login` — verifies an admin and sets an opaque HttpOnly session cookie; returns the CSRF token in the JSON response.
-- `GET /api/v1/auth/me` — returns the active admin and the current CSRF token for a page reload.
+- `GET /api/v1/ready` — MongoDB readiness.
+- `POST /api/v1/auth/login` — verifies an admin and sets an opaque HttpOnly session cookie; returns the CSRF token in JSON.
+- `GET /api/v1/auth/me` — returns the active admin and CSRF token for page reload.
 - `POST /api/v1/auth/logout` — requires the session cookie and `X-CSRF-Token`; revokes the session and clears the cookie.
 
-Browser requests must use credentials (for example, `fetch(..., { credentials: "include" })`). Keep the returned CSRF token in application memory and send it as `X-CSRF-Token` for state-changing operations. Never put the session token in localStorage.
+Browser requests must use credentials (e.g. `fetch(url, { credentials: "include" })`). Keep the CSRF token in application memory and send it as `X-CSRF-Token` for state-changing operations. Never put the session bearer in localStorage.
 
 ## Session and deployment notes
-Sessions live in MongoDB; only a SHA-256 digest of the random session bearer is stored. Session lifetime is 8 hours; expired sessions are rejected server-side and the collection has a TTL index. Passwords are hashed with Node's scrypt (random salt and 64-byte derived key). Login throttling is currently per API process; use a shared rate-limit store before scaling to multiple API instances.
-Development cookies use `SameSite=Strict`; production cookies use `Secure; SameSite=None` to support a cross-origin UI. Browsers may block third-party cookies when Vercel and Render hostnames are unrelated sites. Prefer frontend/API custom domains under the same registrable domain and verify cookies in target browsers before release. Configure exact production origins in `FRONTEND_ORIGINS`.
+Sessions live in MongoDB; only a SHA-256 digest of the random session bearer is stored. Sessions last 8 hours, are checked on each protected auth request and can be revoked at logout. Passwords use Node's scrypt with a random salt and 64-byte derived key. Login throttling is currently per API process; use a shared rate-limit store before deploying multiple API replicas.
+
+Development cookies use `SameSite=Strict`; production cookies use `Secure; SameSite=None` for cross-origin UI/API requests. Browsers can block third-party cookies when Vercel and Render hostnames are unrelated sites. Prefer related custom domains under the same registrable domain and verify cookie delivery in target browsers before release. Set exact production origins in `FRONTEND_ORIGINS`.
 
 ## Commands
 - `pnpm dev` — watch-mode server.
 - `pnpm lint` — repository source-hygiene check; this is not a full ESLint replacement.
 - `pnpm typecheck` — checks source, tests and scripts.
 - `pnpm test` — HTTP/config/auth tests using a fake repository.
-- `pnpm test:integration` — MongoDB-backed authentication/session integration test (requires a disposable database with a name containing `test`).
-- `pnpm build` — compile production source.
+- `pnpm test:integration` — MongoDB-backed authentication/session test (requires a disposable DB whose name contains `test`).
+- `pnpm build` — production compile.
 - `pnpm check` — lint, typecheck, unit tests and build.
 
 ## Engineering documents
