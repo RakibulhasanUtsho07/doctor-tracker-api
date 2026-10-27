@@ -24,5 +24,11 @@ Reliability: consistent errors, health check and redacted operational logging.
 Accessibility: keyboard navigation, visible focus, labels, sufficient contrast and reduced-motion support.
 Maintainability: modular code, reusable UI, tests, README and ADRs.
 Privacy: minimum necessary data, synthetic tests/demo and no patient details in logs.
-## Open decisions
-Assignment does not specify exact patient fields/condition vocabulary, admin provisioning, hard-vs-soft delete, or whether removing a patient from a doctor's list means deleting the patient or detaching the relationship. Resolve these before implementation. Extra features require explicit approval.
+## Recorded implementation decisions for the current scope
+- Patient fields are limited to doctorId, name, optional condition and system timestamps, matching the existing API contract. No extra demographics, contact fields or clinical fields are added.
+- The assignment supplies no controlled condition vocabulary. condition therefore remains bounded free text (maximum 100 characters), not an invented enumeration.
+- A patient can be assigned to zero or one doctor. Removing from a doctor's list detaches the association and preserves the patient record; DELETE /patients/{patientId} permanently deletes the patient.
+- Patient creation and reassignment validate that the target doctor exists. Doctor association changes and destructive mutations require an active admin session and CSRF token.
+- Admin provisioning uses the existing one-time bootstrap flow; there is no public registration endpoint.
+
+The implementation does not infer a controlled clinical taxonomy or introduce features outside the assignment. Any future soft-delete/retention policy or controlled condition vocabulary needs an explicit product/privacy decision.

@@ -28,11 +28,25 @@ List query parameters:
 
 List responses are stable-sorted by createdAt descending then _id descending and include page, limit, total, and totalPages. The response never exposes normalized internal fields.
 
-## Planned domain routes
-Dashboard: GET /dashboard/summary.
-Doctors: GET /doctors/{doctorId}/patients.
-Patients: GET/POST /patients; GET/PATCH/DELETE /patients/{patientId}. Agree relationship-removal semantics before implementing destructive endpoints.
+## Implemented patient and doctor relationship routes
+All patient and doctor-patient endpoints require an active administrator session. POST, PATCH and DELETE requests require the matching X-CSRF-Token.
+- GET /patients: paginated patient list; supports search, doctorId, condition, from/to, page and limit.
+- POST /patients: create a patient under an existing doctor; doctorId and name are required, condition is optional.
+- GET /patients/{patientId}: read one patient.
+- PATCH /patients/{patientId}: update name/condition or move the patient to another existing doctor.
+- DELETE /patients/{patientId}: permanently delete the patient record.
+- GET /doctors/{doctorId}/patients: list only the patients associated with an existing doctor, with the same supported filters except doctorId is taken from the path.
+- DELETE /doctors/{doctorId}/patients/{patientId}: detach the patient from that doctor by setting doctorId to null; patient record and its other fields remain.
 
-## Rules and status codes
-Use stable success envelopes: list data is data.doctors; create/detail/update is data.doctor; metadata contains requestId and, for lists, pagination. Error envelope contains a safe code/message and requestId, never stacks or database internals.
-200 read/update/authenticated; 201 create; 204 no-content delete/logout; 400 malformed/invalid input; 401 unauthenticated or invalid credentials; 403 disallowed origin/authorization/CSRF failure; 404 missing; 409 duplicate doctor email; 422 only if adopted consistently; 429 throttled; 500 generic internal error; 503 not ready.
+Patient field decision: the schema is intentionally limited to doctorId, name and optional condition, plus timestamps. No condition taxonomy was specified, so condition is bounded free text rather than an invented enum. No extra patient PII fields are added. A patient can be assigned to at most one doctor at a time; creating or reassigning validates the doctor reference. Detaching preserves the patient, while explicit patient DELETE is destructive.
+
+Patient list query rules:
+- search: case-insensitive escaped literal prefix across name and condition.
+- doctorId: a 24-hex-character doctor identifier.
+- condition: exact normalized free-text filter up to 100 characters.
+- from/to: real YYYY-MM-DD UTC calendar days applied inclusively to createdAt.
+- page defaults to 1 and limit defaults to 20; limit is 1–100 and offsets above 100,000 are rejected.
+Responses include requestId and pagination metadata; response payloads omit normalized internal fields. Patient details are not logged.
+
+## Status codes
+200 read/update/authenticated; 201 create; 204 no-content delete/logout/detach; 400 malformed or invalid input; 401 unauthenticated or invalid credentials; 403 disallowed origin/authorization/CSRF failure; 404 missing patient/doctor; 409 duplicate doctor email; 429 throttled; 500 generic internal error; 503 not ready.
