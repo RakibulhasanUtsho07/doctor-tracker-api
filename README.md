@@ -5,7 +5,8 @@ Secure REST API for the Doctor Tracker assignment. Stack: Node.js, Express 5, Ty
 ## Verified milestones
 - Step 1 API foundation is merged to `dev` via [PRs #7–#9](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pulls). [CI run #13](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/actions/runs/40477435393) passed source hygiene lint, typecheck, 9/9 tests and build.
 - Step 2 admin authentication is merged to `dev` via [PR #11](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/11). [CI run #28](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/actions/runs/40479777698) passed lint, typecheck, 15/15 HTTP/auth tests, 1/1 MongoDB-backed session integration test and production build.
-- Doctor/patient CRUD and dashboard analytics are not implemented yet.
+- Step 3 Doctor API merged to `dev` via [PR #13](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/13). [CI run #36](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/actions/runs/40492089848) passed lint, typecheck, 18/18 HTTP/unit tests, 2/2 MongoDB integration tests and production build on tested head `57554f0ad604acd9acf2e63bb7e6a1adeca5ae70`.
+- Patient CRUD and dashboard analytics are not implemented yet.
 
 ## Requirements
 - Node.js 22+
@@ -34,6 +35,10 @@ The command refuses to overwrite an existing account. Remove the two bootstrap v
 - `POST /api/v1/auth/login` — verifies an admin and sets an opaque HttpOnly session cookie; returns the CSRF token in JSON.
 - `GET /api/v1/auth/me` — returns the active admin and CSRF token for page reload.
 - `POST /api/v1/auth/logout` — requires the session cookie and `X-CSRF-Token`; revokes the session and clears the cookie.
+- `GET /api/v1/doctors` — admin-only search, specialization/hospital filters, UTC date filters and bounded pagination.
+- `POST /api/v1/doctors` — admin-only create; requires CSRF and enforces normalized-email uniqueness.
+- `GET /api/v1/doctors/:doctorId` — admin-only detail.
+- `PATCH /api/v1/doctors/:doctorId` — admin-only allowlisted partial update; requires CSRF.
 
 Browser requests must use credentials (e.g. `fetch(url, { credentials: "include" })`). Keep the CSRF token in application memory and send it as `X-CSRF-Token` for state-changing operations. Never put the session bearer in localStorage.
 
@@ -46,8 +51,8 @@ Development cookies use `SameSite=Strict`; production cookies use `Secure; SameS
 - `pnpm dev` — watch-mode server.
 - `pnpm lint` — repository source-hygiene check; this is not a full ESLint replacement.
 - `pnpm typecheck` — checks source, tests and scripts.
-- `pnpm test` — HTTP/config/auth tests using a fake repository.
-- `pnpm test:integration` — MongoDB-backed authentication/session test (requires a disposable DB whose name contains `test`).
+- `pnpm test` — HTTP/config/auth/doctor tests using fake repositories (18 tests at Step 3 acceptance).
+- `pnpm test:integration` — MongoDB-backed auth/session and doctor API tests. The doctor test seeds 300 synthetic records and emits query-plan evidence; requires a disposable DB whose name contains `test`.
 - `pnpm build` — production compile.
 - `pnpm check` — lint, typecheck, unit tests and build.
 
