@@ -1,4 +1,4 @@
-import { Schema, model, models, type Model } from "mongoose";
+import mongoose, { Schema, model, type Model } from "mongoose";
 
 const authSessionSchema = new Schema({
   tokenHash: {
@@ -34,4 +34,4 @@ const authSessionSchema = new Schema({
 
 authSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-export const AuthSessionModel = (models.AuthSession ?? model("AuthSession", authSessionSchema)) as unknown as Model<any>;
+export const AuthSessionModel = (mongoose.models.AuthSession ?? model("AuthSession", authSessionSchema)) as unknown as Model<any>;

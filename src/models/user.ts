@@ -1,4 +1,4 @@
-import { Schema, model, models, type Model } from "mongoose";
+import mongoose, { Schema, model, type Model } from "mongoose";
 
 const userSchema = new Schema({
   emailNormalized: {
@@ -31,4 +31,4 @@ const userSchema = new Schema({
   versionKey: false
 });
 
-export const UserModel = (models.User ?? model("User", userSchema)) as unknown as Model<any>;
+export const UserModel = (mongoose.models.User ?? model("User", userSchema)) as unknown as Model<any>;
