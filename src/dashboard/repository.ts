@@ -1,3 +1,4 @@
+import type { PipelineStage } from "mongoose";
 import { DoctorModel } from "../models/doctor.js";
 import { PatientModel } from "../models/patient.js";
 import type { DashboardDateRange } from "./validation.js";
@@ -62,7 +63,10 @@ function buildDailySeries(
 export class MongooseDashboardRepository implements DashboardRepository {
   async getSummary(range: DashboardDateRange): Promise<DashboardSummary> {
     const createdAt = { $gte: range.from, $lt: range.toExclusive };
-    const doctorDailyPipeline = [
+
+    // Contextual typing prevents TypeScript from widening the $sort direction to number.
+    // Both collections use the same UTC date aggregation and indexed createdAt range.
+    const dailyPipeline: PipelineStage[] = [
       { $match: { createdAt } },
       {
         $group: {
@@ -76,23 +80,7 @@ export class MongooseDashboardRepository implements DashboardRepository {
           count: { $sum: 1 }
         }
       },
-      { $sort: { _id: 1 as const } }
-    ];
-    const patientDailyPipeline = [
-      { $match: { createdAt } },
-      {
-        $group: {
-          _id: {
-            $dateToString: {
-              format: "%Y-%m-%d",
-              date: "$createdAt",
-              timezone: "UTC"
-            }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { _id: 1 as const } }
+      { $sort: { _id: 1 } }
     ];
 
     const [doctorTotal, patientTotal, perDoctorRows, doctorDaily, patientDaily] = await Promise.all([
@@ -124,8 +112,8 @@ export class MongooseDashboardRepository implements DashboardRepository {
         },
         { $sort: { name: 1, _id: 1 } }
       ]).exec(),
-      DoctorModel.aggregate(doctorDailyPipeline).exec(),
-      PatientModel.aggregate(patientDailyPipeline).exec()
+      DoctorModel.aggregate(dailyPipeline).exec(),
+      PatientModel.aggregate(dailyPipeline).exec()
     ]);
 
     const patientsPerDoctor = perDoctorRows.map((row: { _id: unknown; name: string; patientCount: number }) => ({
