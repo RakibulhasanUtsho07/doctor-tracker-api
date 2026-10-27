@@ -3,15 +3,14 @@
 API: https://github.com/RakibulhasanUtsho07/doctor-tracker-api
 Frontend: https://github.com/RakibulhasanUtsho07/doctor-tracker-frontend
 ## Branch policy
-main = release; dev = integration; rakibul-hasan = working branch. Promotion is PR-only: rakibul-hasan → dev → tested release PR to main.
+main = release; dev = integration; rakibul-hasan = working branch. Promotion is PR-only: rakibul-hasan → dev → verified release PR to main.
 ## Verified status (2026-10-27)
 - Documentation baseline merged to dev in both repositories.
-- Backend API Step 1 PRs [#7](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/7), [#8](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/8), and [#9](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/9) are merged to dev.
-- [API CI run #13](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/actions/runs/40477435393) passed source hygiene lint, typecheck, 9/9 HTTP/config tests and production build on `f2ddcd4c6ecabde37bca71a689f94758d2eb9614`.
-- API test baseline is runnable. Current tests cover configuration, health, security headers, CORS, error envelopes, malformed JSON and body limit; they do not cover auth or database CRUD.
-- Authentication, doctor/patient CRUD, dashboard aggregates, full security/performance testing and deployment remain incomplete.
-- Frontend functional implementation remains NOT STARTED; the starter page still needs the planned shell/screens.
+- Backend API Step 1 PRs [#7–#9](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pulls) are merged. [CI #13](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/actions/runs/40477435393) passed source hygiene lint, typecheck, 9/9 tests and build.
+- Backend API Step 2 PR [#11](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/pull/11) is merged to dev at merge commit `62fb9b25bad3b2f13b20f6b73655a5ee11ab8ba1`. [CI #28](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/actions/runs/40479777698) passed lint, typecheck, 15/15 HTTP/auth tests, 1/1 MongoDB session integration test and production build on tested PR head `1404b8fd8b6502a79c491dff2bb1782a9e0a7c7d`.
+- Authentication/session baseline is verified. Doctor/patient CRUD and dashboard aggregation are not implemented.
+- Frontend `app/page.tsx` remains the default Next.js starter; functional UI, API integration, tests and deployment are not verified complete.
 ## Progress
-Documentation and workflow: merged to dev. API foundation: Step 1 PASS on dev. Core product features: NOT STARTED. Frontend: NOT STARTED. Deployment: NOT STARTED.
+Documentation/workflow: merged to dev. API foundation Step 1: PASS. Auth/session Step 2: PASS. Doctor API: NOT STARTED. Patient API: NOT STARTED. Dashboard: NOT STARTED. Frontend features: NOT STARTED. Deployment: NOT STARTED.
 ## Next
-Implement [Step 2 authentication/authorization](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/issues/3), then doctor API, patient API and dashboard aggregation. Implement the frontend after backend contracts stabilize; complete E2E/security/performance and deployment before release.
+Implement [Step 3 doctor schema/indexes/CRUD/search/filter/pagination](https://github.com/RakibulhasanUtsho07/doctor-tracker-api/issues/4), then patient and dashboard APIs. Develop frontend shell/screens against stable contracts; complete E2E/security/performance and deployment before release.

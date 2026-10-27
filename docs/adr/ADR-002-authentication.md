@@ -1,6 +1,6 @@
 # ADR-002: Administrator authentication and sessions
 
-- Status: Implemented on the Step 2 work branch; accept only after CI and database integration evidence pass.
+- Status: Accepted and implemented in API PR #11; CI run #28 passed.
 - Context: The assignment requires secure login and protected routes but does not prescribe the mechanism or initial-admin provisioning.
 - Decision:
   - Hash passwords with Node.js scrypt using a random 16-byte salt, N=32768, r=8, p=1 and a 64-byte derived key. Enforce 14–128 characters during administrator provisioning.
