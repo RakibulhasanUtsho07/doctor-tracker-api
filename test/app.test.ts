@@ -89,6 +89,65 @@ test("production configuration requires HTTPS frontend origins while development
   assert.deepEqual(development.frontendOrigins, ["http://localhost:3000"]);
 });
 
+test("production MongoDB connections require TLS and reject explicit TLS disablement", () => {
+  const frontend = { FRONTEND_ORIGINS: "https://app.example.com" };
+
+  assert.throws(
+    () => loadConfig({
+      NODE_ENV: "production",
+      MONGODB_URI: "mongodb://db.example.com/doctor_tracker",
+      ...frontend
+    }),
+    /must enable TLS/
+  );
+
+  assert.throws(
+    () => loadConfig({
+      NODE_ENV: "production",
+      MONGODB_URI: "mongodb+srv://cluster.example.com/doctor_tracker?tls=false",
+      ...frontend
+    }),
+    /must not disable TLS/
+  );
+
+  assert.throws(
+    () => loadConfig({
+      NODE_ENV: "production",
+      MONGODB_URI: "mongodb://db.example.com/doctor_tracker?tls=true&ssl=false",
+      ...frontend
+    }),
+    /must not disable TLS/
+  );
+
+  const directTls = loadConfig({
+    NODE_ENV: "production",
+    MONGODB_URI: "mongodb://db.example.com/doctor_tracker?tls=true",
+    ...frontend
+  });
+  assert.equal(directTls.mongoUri, "mongodb://db.example.com/doctor_tracker?tls=true");
+
+  const legacySslAlias = loadConfig({
+    NODE_ENV: "production",
+    MONGODB_URI: "mongodb://db.example.com/doctor_tracker?ssl=true",
+    ...frontend
+  });
+  assert.equal(legacySslAlias.mongoUri, "mongodb://db.example.com/doctor_tracker?ssl=true");
+
+  const srvDefault = loadConfig({
+    NODE_ENV: "production",
+    MONGODB_URI: "mongodb+srv://cluster.example.com/doctor_tracker",
+    ...frontend
+  });
+  assert.equal(srvDefault.mongoUri, "mongodb+srv://cluster.example.com/doctor_tracker");
+
+  const localDevelopment = loadConfig({
+    NODE_ENV: "development",
+    MONGODB_URI: "mongodb://127.0.0.1:27017/doctor_tracker_dev",
+    FRONTEND_ORIGINS: "http://localhost:3000"
+  });
+  assert.equal(localDevelopment.mongoUri, "mongodb://127.0.0.1:27017/doctor_tracker_dev");
+});
+
 test("health endpoint returns liveness data and a request ID", async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/api/v1/health`);
