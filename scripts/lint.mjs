@@ -28,8 +28,11 @@ for (const file of files) {
     const lineNumber = index + 1;
     if (/[ \t]+$/.test(line.replace(/\r$/, ""))) failures.push(`${file}:${lineNumber}: trailing whitespace`);
     if (line.startsWith("\t")) failures.push(`${file}:${lineNumber}: use spaces instead of tab indentation`);
-    if (/\bconsole\s*\.\s*log\s*\(/.test(line)) failures.push(`${file}:${lineNumber}: remove debug console.log calls`);
-    if (/\bdebugger\s*;?/.test(line)) failures.push(`${file}:${lineNumber}: remove debugger statements`);
+    // Avoid matching this file's own regex literals while scanning source for debug calls.
+    if (!file.endsWith("scripts/lint.mjs")) {
+      if (/\bconsole\s*\.\s*log\s*\(/.test(line)) failures.push(`${file}:${lineNumber}: remove debug console.log calls`);
+      if (/\bdebugger\s*;?/.test(line)) failures.push(`${file}:${lineNumber}: remove debugger statements`);
+    }
   });
 }
 if (failures.length > 0) {
