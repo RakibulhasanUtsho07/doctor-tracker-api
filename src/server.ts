@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { createServer } from "node:http";
 import type { AppConfig } from "./config/env.js";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config/env.js";
@@ -13,7 +14,14 @@ try {
 }
 
 const app = createApp(config);
-const server = app.listen(config.port, () => {
+const server = createServer(app);
+
+// Bound request/header handling time to reduce slow-client resource exhaustion.
+server.requestTimeout = 30_000;
+server.headersTimeout = 15_000;
+server.keepAliveTimeout = 5_000;
+
+server.listen(config.port, () => {
   process.stdout.write(`Doctor Tracker API listening on port ${config.port}.\n`);
 });
 
