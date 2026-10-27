@@ -31,5 +31,4 @@ const userSchema = new Schema({
   versionKey: false
 });
 
-export const UserModel: Model<any> =
-  (models.User as Model<any> | undefined) ?? model<any>("User", userSchema);
+export const UserModel = (models.User ?? model("User", userSchema)) as unknown as Model<any>;
