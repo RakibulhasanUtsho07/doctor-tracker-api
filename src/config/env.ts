@@ -48,6 +48,31 @@ function parseFrontendOrigins(value: string | undefined, requireHttps = false): 
   }))];
 }
 
+function assertProductionMongoTls(uri: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(uri);
+  } catch {
+    throw new Error("Production MONGODB_URI must be a valid MongoDB connection string.");
+  }
+
+  const tlsOptions = [...parsed.searchParams.entries()]
+    .filter(([key]) => key.toLowerCase() === "tls" || key.toLowerCase() === "ssl")
+    .map(([, value]) => value.toLowerCase());
+
+  if (tlsOptions.some((value) => value !== "true")) {
+    throw new Error("Production MONGODB_URI must not disable TLS; any TLS option must be true.");
+  }
+
+  if (uri.toLowerCase().startsWith("mongodb+srv://")) {
+    return;
+  }
+
+  if (tlsOptions.length === 0) {
+    throw new Error("Production MONGODB_URI must enable TLS with tls=true (or ssl=true), or use mongodb+srv://.");
+  }
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const rawNodeEnv = env.NODE_ENV ?? "development";
   if (!["development", "test", "production"].includes(rawNodeEnv)) {
@@ -60,6 +85,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   }
   if (!/^mongodb(?:\+srv)?:\/\//i.test(mongoUri)) {
     throw new Error("MONGODB_URI must use the mongodb:// or mongodb+srv:// scheme.");
+  }
+
+  if (rawNodeEnv === "production") {
+    assertProductionMongoTls(mongoUri);
   }
 
   return {
