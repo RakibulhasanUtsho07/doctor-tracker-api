@@ -5,6 +5,7 @@
 - Session bearers are random opaque values delivered only in an HttpOnly cookie. MongoDB stores a SHA-256 digest, user reference, CSRF token and expiry. Sessions are revoked on logout, checked on each protected request and expire after 8 hours.
 - Login returns generic invalid-credential errors and applies a limit of five attempts per client IP per 15-minute window. The current limiter is per process; a shared store is needed before multi-instance scaling.
 - Development cookie policy is SameSite=Strict. Production cookie policy is Secure and SameSite=None for cross-origin frontend/API requests, with a __Host-prefixed cookie name.
+- Production startup rejects `FRONTEND_ORIGINS` entries that use plain HTTP; local HTTP origins are permitted only in development/test configuration. Keep the production allowlist limited to the exact deployed HTTPS frontend origins.
 - The frontend keeps the separate CSRF token in memory and sends X-CSRF-Token on state-changing calls. Never store session bearers in localStorage.
 ## Authorization
 Deny by default. Require an active ADMIN and a server-side session check for protected endpoints. Future doctor/patient routes must authorize every operation server-side. Use explicit mutation allowlists; clients must not set roles, timestamps or audit fields.

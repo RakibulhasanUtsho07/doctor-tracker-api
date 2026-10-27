@@ -16,7 +16,7 @@ function parsePort(value: string | undefined): number {
   return port;
 }
 
-function parseFrontendOrigins(value: string | undefined): string[] {
+function parseFrontendOrigins(value: string | undefined, requireHttps = false): string[] {
   if (!value?.trim()) {
     throw new Error("Missing required environment variable: FRONTEND_ORIGINS.");
   }
@@ -31,6 +31,9 @@ function parseFrontendOrigins(value: string | undefined): string[] {
       parsed = new URL(origin);
     } catch {
       throw new Error("FRONTEND_ORIGINS must contain valid HTTP(S) origins.");
+    }
+    if (requireHttps && parsed.protocol !== "https:") {
+      throw new Error("Production FRONTEND_ORIGINS entries must use HTTPS.");
     }
     const normalizedInput = origin.endsWith("/") ? origin.slice(0, -1) : origin;
     if (
@@ -63,6 +66,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     nodeEnv: rawNodeEnv as NodeEnvironment,
     port: parsePort(env.PORT),
     mongoUri,
-    frontendOrigins: parseFrontendOrigins(env.FRONTEND_ORIGINS)
+    frontendOrigins: parseFrontendOrigins(env.FRONTEND_ORIGINS, rawNodeEnv === "production")
   };
 }
