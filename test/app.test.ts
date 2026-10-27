@@ -53,7 +53,7 @@ test("configuration rejects invalid ports and non-origin frontend URLs", () => {
 
 test("production configuration requires HTTPS frontend origins while development permits localhost HTTP", () => {
   const base = {
-    MONGODB_URI: "mongodb://localhost:27017/doctor_tracker_test"
+    MONGODB_URI: "mongodb+srv://cluster.example.com/doctor_tracker_test"
   };
 
   assert.throws(
