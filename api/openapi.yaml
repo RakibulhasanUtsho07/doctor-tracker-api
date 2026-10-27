@@ -83,9 +83,18 @@ paths:
         '401': { description: Unauthenticated }
   /dashboard/summary:
     get:
-      summary: Read totals and date-based aggregates
+      summary: Read all-time totals, patient counts per doctor and UTC creation statistics
+      parameters:
+        - { in: query, name: from, schema: { type: string, format: date }, description: Inclusive UTC calendar start. Defaults to 29 days before today when omitted. }
+        - { in: query, name: to, schema: { type: string, format: date }, description: Inclusive UTC calendar end. Defaults to today when omitted. }
       responses:
-        '200': { description: Dashboard metrics }
+        '200':
+          description: All-time totals, per-doctor linked patient counts and zero-filled daily creation counts
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardSummaryResponse' }
+        '400': { description: Invalid or future date, range over 366 days, or unknown query parameter }
+        '401': { description: Unauthenticated }
   /doctors:
     get:
       summary: Search, filter and paginate doctors
@@ -269,6 +278,50 @@ components:
         hospital: { type: string, minLength: 2, maxLength: 160 }
         phone: { type: string, minLength: 5, maxLength: 30 }
         email: { type: string, format: email, maxLength: 254 }
+    DashboardSummaryResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [totals, patientsPerDoctor, dateStatistics]
+          properties:
+            totals:
+              type: object
+              required: [doctors, patients]
+              properties:
+                doctors: { type: integer, minimum: 0, description: All doctor records, regardless of date range. }
+                patients: { type: integer, minimum: 0, description: All patient records, including detached records. }
+            patientsPerDoctor:
+              type: array
+              description: All doctors, including zero-count doctors; only currently associated patients count here.
+              items:
+                type: object
+                required: [doctorId, doctorName, patientCount]
+                properties:
+                  doctorId: { type: string, minLength: 24, maxLength: 24 }
+                  doctorName: { type: string }
+                  patientCount: { type: integer, minimum: 0 }
+            dateStatistics:
+              type: object
+              required: [from, to, days]
+              properties:
+                from: { type: string, format: date }
+                to: { type: string, format: date }
+                days:
+                  type: array
+                  items:
+                    type: object
+                    required: [date, doctorsCreated, patientsCreated]
+                    properties:
+                      date: { type: string, format: date }
+                      doctorsCreated: { type: integer, minimum: 0 }
+                      patientsCreated: { type: integer, minimum: 0 }
+        meta:
+          type: object
+          required: [requestId]
+          properties:
+            requestId: { type: string, format: uuid }
     PatientInput:
       type: object
       additionalProperties: false

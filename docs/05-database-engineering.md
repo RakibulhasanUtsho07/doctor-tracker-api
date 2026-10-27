@@ -37,3 +37,13 @@ The MongoDB doctor integration test seeds 300 synthetic records and logs explain
 
 ## General evidence
 Authentication/session persistence, schema/index initialization, doctor duplicate email behaviour, patient reference checks, patient detach-versus-delete semantics, pagination bounds, aggregate reconciliation, explain plans and measured latency are covered by integration evidence as implemented.
+
+
+## Dashboard aggregation and query plans
+
+The dashboard uses MongoDB count queries for all-time totals, a projected doctor-to-patient $lookup for linked patient counts, and server-side $match/$group aggregation for daily creation counts. It does not load full collections or patient records into the frontend. Dashboard date queries filter on indexed createdAt fields using the inclusive UTC range from midnight on "from" to midnight after "to".
+- doctor_created_desc_idx supports dashboard doctor-creation date aggregation.
+- patient_created_desc_idx supports dashboard patient-creation date aggregation.
+- patient_doctor_created_idx supports the per-doctor lookup counts.
+
+The dashboard MongoDB integration test emits DASHBOARD_EXPLAIN_EVIDENCE for synthetic data, including winning index names, execution time, documents examined and records returned. Measurements are tied to CI only and do not constitute a production-scale SLO.

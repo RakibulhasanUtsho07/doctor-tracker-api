@@ -28,6 +28,12 @@ List query parameters:
 
 List responses are stable-sorted by createdAt descending then _id descending and include page, limit, total, and totalPages. The response never exposes normalized internal fields.
 
+## Implemented dashboard route
+- GET /dashboard/summary: admin-only database-backed aggregates. Query accepts only from/to dates in YYYY-MM-DD form. Both are inclusive UTC calendar days; omitted range defaults to the latest 30 UTC calendar days including today. A range is at most 366 days, future days are rejected, and all days are returned even when their counts are zero.
+- data.totals.doctors and data.totals.patients are all-time current record totals, independent of the selected date range.
+- data.patientsPerDoctor includes every doctor (including zero-count doctors) and counts only currently associated patient records. Detached patients still count toward total patients but not toward any doctor.
+- data.dateStatistics contains one daily bucket per requested UTC day; doctorsCreated and patientsCreated count records by createdAt.
+
 ## Implemented patient and doctor relationship routes
 All patient and doctor-patient endpoints require an active administrator session. POST, PATCH and DELETE requests require the matching X-CSRF-Token.
 - GET /patients: paginated patient list; supports search, doctorId, condition, from/to, page and limit.
