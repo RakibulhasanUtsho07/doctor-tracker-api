@@ -113,6 +113,15 @@ test("production MongoDB connections require TLS and reject explicit TLS disable
   assert.throws(
     () => loadConfig({
       NODE_ENV: "production",
+      MONGODB_URI: "mongodb+srv://cluster.example.com/doctor_tracker?TLS=false",
+      ...frontend
+    }),
+    /must not disable TLS/
+  );
+
+  assert.throws(
+    () => loadConfig({
+      NODE_ENV: "production",
       MONGODB_URI: "mongodb://db.example.com/doctor_tracker?tls=true&ssl=false",
       ...frontend
     }),
