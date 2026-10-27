@@ -68,7 +68,7 @@ function cookie(response: Response, name = "dt_session"): string {
   const header = response.headers.get("set-cookie");
   assert.ok(header);
   const pair = header.split(";")[0];
-  assert.ok(pair?.startsWith(`${name}=`));
+  if (!pair?.startsWith(`${name}=`)) throw new Error("Expected session cookie name.");
   return pair;
 }
 

@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import { Schema, model, models, type Model } from "mongoose";
 
 const userSchema = new Schema({
   emailNormalized: {
@@ -31,4 +31,5 @@ const userSchema = new Schema({
   versionKey: false
 });
 
-export const UserModel = models.User ?? model("User", userSchema);
+export const UserModel: Model<any> =
+  (models.User as Model<any> | undefined) ?? model<any>("User", userSchema);
