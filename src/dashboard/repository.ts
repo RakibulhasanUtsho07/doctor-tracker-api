@@ -76,7 +76,7 @@ export class MongooseDashboardRepository implements DashboardRepository {
           count: { $sum: 1 }
         }
       },
-      { $sort: { _id: 1 } }
+      { $sort: { _id: 1 as const } }
     ];
     const patientDailyPipeline = [
       { $match: { createdAt } },
@@ -92,7 +92,7 @@ export class MongooseDashboardRepository implements DashboardRepository {
           count: { $sum: 1 }
         }
       },
-      { $sort: { _id: 1 } }
+      { $sort: { _id: 1 as const } }
     ];
 
     const [doctorTotal, patientTotal, perDoctorRows, doctorDaily, patientDaily] = await Promise.all([
