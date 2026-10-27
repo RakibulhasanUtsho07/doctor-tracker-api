@@ -17,8 +17,22 @@ concurrency:
 
 jobs:
   quality:
-    name: Lint, typecheck, test and build
+    name: Lint, typecheck, unit and MongoDB integration tests, build
     runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      MONGODB_URI: mongodb://127.0.0.1:27017/doctor_tracker_ci_test
+      FRONTEND_ORIGINS: http://localhost:3000
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,7 +51,9 @@ jobs:
         run: pnpm lint
       - name: Typecheck
         run: pnpm typecheck
-      - name: HTTP and configuration tests
+      - name: HTTP and authentication unit tests
         run: pnpm test
+      - name: MongoDB authentication/session integration test
+        run: pnpm test:integration
       - name: Production build
         run: pnpm build

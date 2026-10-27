@@ -6,7 +6,7 @@ info:
 servers:
   - url: http://localhost:4000/api/v1
 security:
-  - bearerAuth: []
+  - sessionCookie: []
 paths:
   /health:
     get:
@@ -35,10 +35,17 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /ready:
+    get:
+      security: []
+      summary: Database readiness check
+      responses:
+        '200': { description: Database connection is ready }
+        '503': { description: Database connection is not ready }
   /auth/login:
     post:
       security: []
-      summary: Administrator login
+      summary: Administrator login using a server-side session cookie
       requestBody:
         required: true
         content:
@@ -51,19 +58,29 @@ paths:
                 email: { type: string, format: email, maxLength: 254 }
                 password: { type: string, minLength: 1, maxLength: 128, format: password }
       responses:
-        '200': { description: Authenticated }
+        '200':
+          description: Session cookie set; CSRF token returned in JSON response
+        '400': { description: Invalid request shape }
         '401': { description: Invalid credentials }
         '429': { description: Rate limited }
   /auth/logout:
     post:
-      summary: End session
+      summary: Revoke the current session
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string, minLength: 40 }
       responses:
-        '204': { description: Logged out }
+        '204': { description: Session revoked and cookie cleared }
+        '401': { description: Unauthenticated }
+        '403': { description: CSRF token is invalid }
   /auth/me:
     get:
-      summary: Current administrator
+      summary: Current administrator, CSRF token and session expiry
       responses:
-        '200': { description: Current user }
+        '200': { description: Current user, CSRF token and session expiry }
+        '401': { description: Unauthenticated }
   /dashboard/summary:
     get:
       summary: Read totals and date-based aggregates
@@ -160,11 +177,11 @@ paths:
         '204': { description: Deleted }
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Provisional; final authentication design is pending ADR-002.
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: dt_session
+      description: HttpOnly opaque session. Production uses __Host-dt_session; browser requests must include credentials.
   schemas:
     ErrorResponse:
       type: object

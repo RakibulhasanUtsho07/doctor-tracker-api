@@ -1,11 +1,16 @@
 # Security Engineering Standard
 ## Identity and sessions
-Use maintained password hashing and no hard-coded admin password. Use generic login failures and rate limits. Define admin provisioning and recovery before release. If JWTs are used, validate signature, algorithm allowlist, expiry, issuer and audience. Define logout, revocation and secret rotation.
+- Passwords use Node.js scrypt with a random salt and fixed parameters; never store plaintext or use a default administrator password.
+- The first administrator is provisioned by a one-time command. There is no public registration route and bootstrap refuses to overwrite an existing account.
+- Session bearers are random opaque values delivered only in an HttpOnly cookie. MongoDB stores a SHA-256 digest, user reference, CSRF token and expiry. Sessions are revoked on logout, checked on each protected request and expire after 8 hours.
+- Login returns generic invalid-credential errors and applies a limit of five attempts per client IP per 15-minute window. The current limiter is per process; a shared store is needed before multi-instance scaling.
+- Development cookie policy is SameSite=Strict. Production cookie policy is Secure and SameSite=None for cross-origin frontend/API requests, with a __Host-prefixed cookie name.
+- The frontend keeps the separate CSRF token in memory and sends X-CSRF-Token on state-changing calls. Never store session bearers in localStorage.
 ## Authorization
-Deny by default. Protect each non-public route and require admin authorization for management calls. Enforce resource access on the server. Use explicit mutation DTOs; clients must not set roles, timestamps or audit fields.
+Deny by default. Require an active ADMIN and a server-side session check for protected endpoints. Future doctor/patient routes must authorize every operation server-side. Use explicit mutation allowlists; clients must not set roles, timestamps or audit fields.
 ## API and browser
-Validate format, length, enum, date range, query, and page limits. Never pass raw client objects to MongoDB. Use Helmet, restrictive CORS, body/time limits, and appropriate rate limits. Escape UI text; avoid unsafe HTML. Public errors must not expose stack traces or database internals.
+Validate request types, lengths, formats and unknown fields. Use Helmet, exact CORS allowlists with credentials, body limits and request/header timeouts. Escape UI data and avoid unsafe HTML. Public errors must not expose stacks, database internals, credentials or patient details.
 ## Data and secrets
-Use least-privilege DB credentials and restrict network access. Commit placeholders only; ignore real environment files. Use synthetic test data. Redact passwords, tokens, database URIs and patient details from logs. Define backup encryption, retention and restore checks.
+Use least-privilege DB credentials and restrict network access. Commit placeholders only. Bootstrap credentials must be injected temporarily and removed afterward. Redact passwords, tokens, database URIs and patient details from logs.
 ## Release gate
-Authentication and cross-record negative tests pass, dependency review is complete, no unaccepted critical/high issue remains, and deployed secrets/config are reviewed. Documentation alone does not implement a control.
+Auth/session/CSRF/invalid-credential/rate-limit tests pass; MongoDB integration verifies session persistence/revocation; dependency/config review is complete; cookies are verified on actual deployment domains. This checklist is not compliance certification.

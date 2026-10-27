@@ -1,10 +1,14 @@
 import cors from "cors";
 import express, { type RequestHandler } from "express";
 import helmet from "helmet";
+import mongoose from "mongoose";
+import type { AuthRepository } from "./auth/repository.js";
+import { MongooseAuthRepository } from "./auth/repository.js";
 import type { AppConfig } from "./config/env.js";
 import { HttpError } from "./lib/http-error.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
+import { createAuthRouter } from "./routes/auth.js";
 
 function originGuard(allowedOrigins: string[]): RequestHandler {
   const allowlist = new Set(allowedOrigins);
@@ -18,21 +22,26 @@ function originGuard(allowedOrigins: string[]): RequestHandler {
   };
 }
 
-export function createApp(config: AppConfig) {
+export function createApp(
+  config: AppConfig,
+  authRepository: AuthRepository = new MongooseAuthRepository()
+) {
   const app = express();
   app.disable("x-powered-by");
+  if (config.nodeEnv === "production") app.set("trust proxy", 1);
   app.use(helmet());
   app.use(requestIdMiddleware);
   app.use(originGuard(config.frontendOrigins));
   app.use(cors({
     origin: config.frontendOrigins,
+    credentials: true,
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Request-ID"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Request-ID", "X-CSRF-Token"],
     optionsSuccessStatus: 204
   }));
   app.use(express.json({ limit: "100kb", strict: true }));
 
-  // Liveness only: Step 1 deliberately does not open a MongoDB connection.
+  // Liveness: confirms the HTTP process is serving requests.
   app.get("/api/v1/health", (_req, res) => {
     res.status(200).json({
       data: {
@@ -43,6 +52,17 @@ export function createApp(config: AppConfig) {
       meta: { requestId: res.locals.requestId }
     });
   });
+
+  // Readiness: indicates whether Mongoose has an active database connection.
+  app.get("/api/v1/ready", (_req, res) => {
+    const ready = mongoose.connection.readyState === 1;
+    res.status(ready ? 200 : 503).json({
+      data: { status: ready ? "ready" : "not_ready" },
+      meta: { requestId: res.locals.requestId }
+    });
+  });
+
+  app.use("/api/v1/auth", createAuthRouter(config, authRepository));
 
   app.use((_req, _res, next) => {
     next(new HttpError(404, "NOT_FOUND", "Route not found."));
