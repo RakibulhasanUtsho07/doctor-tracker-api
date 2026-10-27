@@ -73,7 +73,8 @@ export function createDoctorRouter(
 
   router.get("/:doctorId", async (req, res, next) => {
     try {
-      const id = validateDoctorId(req.params.doctorId ?? "");
+      const idParam: unknown = req.params.doctorId;
+      const id = validateDoctorId(typeof idParam === "string" ? idParam : "");
       const doctor = ensureFound(await doctorRepository.findById(id));
       res.status(200).json({
         data: { doctor },
@@ -86,7 +87,8 @@ export function createDoctorRouter(
 
   router.patch("/:doctorId", requireCsrf, async (req, res, next) => {
     try {
-      const id = validateDoctorId(req.params.doctorId ?? "");
+      const idParam: unknown = req.params.doctorId;
+      const id = validateDoctorId(typeof idParam === "string" ? idParam : "");
       const input = parseDoctorBody(req.body, true);
       const doctor = ensureFound(await doctorRepository.update(id, input));
       res.status(200).json({

@@ -139,7 +139,10 @@ test("MongoDB doctor CRUD, duplicate policy, indexed filters and bounded paginat
 
       const query = DoctorModel.find({ specializationNormalized: "cardiology" })
         .sort({ createdAt: -1, _id: -1 }).limit(20);
-      const explain = await query.explain("executionStats");
+      const explain = await query.explain("executionStats") as unknown as {
+        queryPlanner: { winningPlan: unknown };
+        executionStats: { executionTimeMillis: number; totalDocsExamined: number; nReturned: number };
+      };
       const stats = explain.executionStats as { executionTimeMillis: number; totalDocsExamined: number; nReturned: number };
       const planText = JSON.stringify(explain.queryPlanner.winningPlan);
       process.stdout.write("DOCTOR_EXPLAIN_EVIDENCE " + JSON.stringify({
@@ -154,7 +157,10 @@ test("MongoDB doctor CRUD, duplicate policy, indexed filters and bounded paginat
         .sort({ createdAt: -1, _id: -1 })
         .limit(20)
         .hint("doctor_specialization_created_idx")
-        .explain("executionStats");
+        .explain("executionStats") as unknown as {
+          queryPlanner: { winningPlan: unknown };
+          executionStats: { totalDocsExamined: number; nReturned: number };
+        };
       assert.ok(JSON.stringify(hintedExplain.queryPlanner.winningPlan).includes("doctor_specialization_created_idx"));
       const hintedStats = hintedExplain.executionStats as { totalDocsExamined: number; nReturned: number };
       assert.ok(hintedStats.totalDocsExamined <= 20);
