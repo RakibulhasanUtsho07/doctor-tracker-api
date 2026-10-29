@@ -29,7 +29,7 @@ for (const file of files) {
     if (/[ \t]+$/.test(line.replace(/\r$/, ""))) failures.push(`${file}:${lineNumber}: trailing whitespace`);
     if (line.startsWith("\t")) failures.push(`${file}:${lineNumber}: use spaces instead of tab indentation`);
     // Avoid matching this file's own regex literals while scanning source for debug calls.
-   if (path.normalize(file) !== path.normalize("scripts/lint.mjs")) {
+    if (path.normalize(file) !== path.normalize("scripts/lint.mjs")) {
       if (/\bconsole\s*\.\s*log\s*\(/.test(line)) failures.push(`${file}:${lineNumber}: remove debug console.log calls`);
       if (/\bdebugger\s*;?/.test(line)) failures.push(`${file}:${lineNumber}: remove debugger statements`);
     }
