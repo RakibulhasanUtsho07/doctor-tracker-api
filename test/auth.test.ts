@@ -132,6 +132,52 @@ test("registration validates email, password length and rejects client-supplied 
   });
 });
 
+test("production first-admin setup requires a configured out-of-band setup code", async () => {
+  const repo = new MemoryAuthRepository();
+  const production = { ...config, nodeEnv: "production" as const, initialAdminSetupToken: null };
+
+  await withServer(repo, async (url) => {
+    const statusResponse = await fetch(`${url}/api/v1/auth/registration-status`);
+    const status = await statusResponse.json() as {
+      data: { registrationOpen: boolean; setupCodeRequired: boolean; setupDisabled: boolean };
+    };
+    assert.equal(status.data.registrationOpen, false);
+    assert.equal(status.data.setupCodeRequired, false);
+    assert.equal(status.data.setupDisabled, true);
+
+    const response = await register(url, "first@example.com");
+    assert.equal(response.status, 503);
+    assert.equal((await response.json() as { error: { code: string } }).error.code, "REGISTRATION_SETUP_DISABLED");
+    assert.equal(repo.users.size, 0);
+  }, production);
+});
+
+test("configured first-admin setup code is required, compared securely, and never grants a second account", async () => {
+  const repo = new MemoryAuthRepository();
+  const setupCode = "one-time-setup-code-".padEnd(48, "x");
+  const appConfig = { ...config, initialAdminSetupToken: setupCode };
+
+  await withServer(repo, async (url) => {
+    const statusResponse = await fetch(`${url}/api/v1/auth/registration-status`);
+    const status = await statusResponse.json() as {
+      data: { registrationOpen: boolean; setupCodeRequired: boolean; setupDisabled: boolean };
+    };
+    assert.equal(status.data.registrationOpen, true);
+    assert.equal(status.data.setupCodeRequired, true);
+    assert.equal(status.data.setupDisabled, false);
+
+    assert.equal((await register(url, "first@example.com")).status, 403);
+    assert.equal((await register(url, "first@example.com", password, { setupToken: "incorrect-code".padEnd(48, "x") })).status, 403);
+    const created = await register(url, "first@example.com", password, { setupToken: setupCode });
+    assert.equal(created.status, 201);
+    assert.equal(repo.users.size, 1);
+
+    const second = await register(url, "second@example.com", password, { setupToken: setupCode });
+    assert.equal(second.status, 409);
+    assert.equal(repo.users.size, 1);
+  }, appConfig);
+});
+
 test("concurrent registration attempts can create at most one administrator", async () => {
   const repo = new MemoryAuthRepository();
   await withServer(repo, async (url) => {
