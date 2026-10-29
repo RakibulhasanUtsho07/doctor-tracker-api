@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import type { Server } from "node:http";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import type { AddressInfo } from "node:net";
@@ -23,7 +24,7 @@ test("MongoDB-backed first-admin registration is atomic and closes after creatio
   const password = "Strong first admin password 2026!";
 
   await mongoose.connect(uri, { serverSelectionTimeoutMS: 5_000 });
-  let server: ReturnType<typeof createApp> extends never ? never : import("node:http").Server | undefined;
+  let server: Server | undefined;
   try {
     assert.match(mongoose.connection.name ?? "", /test/i, "must use a generated disposable test database");
     await Promise.all([UserModel.init(), AuthSessionModel.init()]);
