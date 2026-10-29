@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { Router, type Request, type RequestHandler, type Response } from "express";
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "../auth/password.js";
 import type { AuthContext } from "../auth/session.js";
@@ -99,16 +100,27 @@ function parseLoginBody(body: unknown): { email: string; password: string } {
   return { email, password: record.password };
 }
 
-function parseRegistrationBody(body: unknown): { email: string; password: string } {
+function parseRegistrationBody(
+  body: unknown,
+  setupTokenRequired: boolean
+): { email: string; password: string; setupToken?: string } {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     throw new HttpError(400, "VALIDATION_ERROR", "Provide an email and password.");
   }
   const record = body as Record<string, unknown>;
-  if (Object.keys(record).some((key) => key !== "email" && key !== "password")) {
+  const allowedFields = setupTokenRequired ? ["email", "password", "setupToken"] : ["email", "password"];
+  if (Object.keys(record).some((key) => !allowedFields.includes(key))) {
     throw new HttpError(400, "VALIDATION_ERROR", "Unexpected registration fields are not allowed.");
   }
   if (typeof record.email !== "string" || typeof record.password !== "string") {
     throw new HttpError(400, "VALIDATION_ERROR", "Provide an email and password.");
+  }
+  if (
+    setupTokenRequired &&
+    record.setupToken !== undefined &&
+    (typeof record.setupToken !== "string" || record.setupToken.length > 512)
+  ) {
+    throw new HttpError(400, "VALIDATION_ERROR", "Provide a valid one-time setup code.");
   }
 
   const email = record.email.trim().toLowerCase();
@@ -122,7 +134,19 @@ function parseRegistrationBody(body: unknown): { email: string; password: string
   ) {
     throw new HttpError(400, "VALIDATION_ERROR", "Provide a valid email and a password between 14 and 128 characters.");
   }
-  return { email, password: record.password };
+  return {
+    email,
+    password: record.password,
+    ...(typeof record.setupToken === "string" ? { setupToken: record.setupToken } : {})
+  };
+}
+
+function matchesSetupToken(candidate: string | undefined, expected: string): boolean {
+  // Compare fixed-length digests so unequal candidate lengths do not bypass
+  // timingSafeEqual or cause a length-dependent early return.
+  const candidateDigest = createHash("sha256").update(candidate ?? "", "utf8").digest();
+  const expectedDigest = createHash("sha256").update(expected, "utf8").digest();
+  return timingSafeEqual(candidateDigest, expectedDigest);
 }
 
 function publicUser(user: { id: string; email: string; role: string }) {
@@ -173,8 +197,16 @@ export function createAuthRouter(config: AppConfig, repository: AuthRepository):
 
   router.get("/registration-status", async (_req, res, next) => {
     try {
+      const setupClaimOpen = await repository.isFirstAdminRegistrationOpen();
+      const setupDisabled = setupClaimOpen &&
+        config.nodeEnv === "production" &&
+        !config.initialAdminSetupToken;
       res.status(200).json({
-        data: { registrationOpen: await repository.isFirstAdminRegistrationOpen() },
+        data: {
+          registrationOpen: setupClaimOpen && !setupDisabled,
+          setupCodeRequired: Boolean(config.initialAdminSetupToken),
+          setupDisabled
+        },
         meta: { requestId: res.locals.requestId }
       });
     } catch (error) {
@@ -184,7 +216,6 @@ export function createAuthRouter(config: AppConfig, repository: AuthRepository):
 
   router.post("/register", registrationLimit.middleware, async (req, res, next) => {
     try {
-      const { email, password } = parseRegistrationBody(req.body);
       if (!(await repository.isFirstAdminRegistrationOpen())) {
         next(new HttpError(
           409,
@@ -193,6 +224,28 @@ export function createAuthRouter(config: AppConfig, repository: AuthRepository):
         ));
         return;
       }
+
+      if (config.nodeEnv === "production" && !config.initialAdminSetupToken) {
+        next(new HttpError(
+          503,
+          "REGISTRATION_SETUP_DISABLED",
+          "Initial administrator setup is disabled until the system operator configures a one-time setup code."
+        ));
+        return;
+      }
+
+      const { email, password, setupToken } = parseRegistrationBody(
+        req.body,
+        Boolean(config.initialAdminSetupToken)
+      );
+      if (
+        config.initialAdminSetupToken &&
+        !matchesSetupToken(setupToken, config.initialAdminSetupToken)
+      ) {
+        next(new HttpError(403, "INVALID_SETUP_CODE", "The one-time setup code is invalid."));
+        return;
+      }
+
       const passwordHash = await hashPassword(password);
       const user = await repository.registerFirstAdmin(email, passwordHash);
       if (!user) {

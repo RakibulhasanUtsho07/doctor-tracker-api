@@ -12,3 +12,12 @@
 Use deterministic synthetic data and disposable test DB. Assert tests cannot target production. Record commit SHA, command, CI URL, pass/fail counts, environment and gaps. If CI is absent, state NOT CONFIGURED, not PASS.
 ## Merge gates
 Relevant tests and quality checks pass; critical/high issues are addressed or formally accepted; traceability updated; no secrets or patient data committed; PR records requirement IDs and evidence.
+
+
+## Production initial-admin setup-code hardening — 2026-10-29
+
+- Production with an empty user collection and no `INITIAL_ADMIN_SETUP_TOKEN` must report `setupDisabled=true`, `registrationOpen=false`, and reject direct `POST /auth/register` with 503.
+- When the token is configured (minimum 32 bytes), the registration status reports that a code is required; missing/incorrect tokens are rejected with 403 before password hashing, while the correct code allows exactly one first ADMIN.
+- Configuration tests reject a too-short configured token and preserve local-development behavior when the setting is absent.
+- Frontend tests exercise the code-required flow, assert the code is sent only in the registration request body, verify browser storage remains empty, scan the code field for accessibility, and verify the disabled-production state does not render a registration form.
+- These tests do not replace secure deployment secret handling or live production validation. Never set `INITIAL_ADMIN_SETUP_TOKEN` as a public frontend environment variable or put it in a URL/log.
