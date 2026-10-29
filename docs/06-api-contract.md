@@ -4,6 +4,7 @@ Base path: /api/v1. Keep api/openapi.yaml synchronized with implementation.
 ## Health and authentication
 - GET /health: liveness only.
 - GET /ready: 200 only when MongoDB is connected; otherwise 503.
+- Administrator creation is deliberately not exposed as a public API route. Operators provision the first ADMIN via `pnpm bootstrap:admin` with `ADMIN_EMAIL` and `ADMIN_PASSWORD` injected securely; the command uses a durable setup marker, rejects overwrite, and creates no browser session.
 - POST /auth/login: accepts only email/password. Uses a generic 401 for incorrect credentials and returns a session cookie plus CSRF token.
 - GET /auth/me: requires the session cookie and returns the current active admin, CSRF token and session expiry.
 - POST /auth/logout: requires the session cookie and matching X-CSRF-Token; revokes the server-side session and clears the cookie.

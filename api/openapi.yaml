@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Doctor Tracker API
   version: 1.0.0
-  description: Incrementally implemented API. Health, readiness, authentication and doctor CRUD routes are implemented; patient and dashboard routes remain planned.
+  description: Secure administrator API with health/readiness, login/session, doctor CRUD, patient CRUD and dashboard endpoints. Administrator creation is available only through the operator CLI bootstrap command; no public signup endpoint is exposed.
 servers:
   - url: http://localhost:4000/api/v1
 security:

@@ -16,7 +16,7 @@ function parsePort(value: string | undefined): number {
   return port;
 }
 
-function parseFrontendOrigins(value: string | undefined): string[] {
+function parseFrontendOrigins(value: string | undefined, requireHttps = false): string[] {
   if (!value?.trim()) {
     throw new Error("Missing required environment variable: FRONTEND_ORIGINS.");
   }
@@ -32,6 +32,9 @@ function parseFrontendOrigins(value: string | undefined): string[] {
     } catch {
       throw new Error("FRONTEND_ORIGINS must contain valid HTTP(S) origins.");
     }
+    if (requireHttps && parsed.protocol !== "https:") {
+      throw new Error("Production FRONTEND_ORIGINS entries must use HTTPS.");
+    }
     const normalizedInput = origin.endsWith("/") ? origin.slice(0, -1) : origin;
     if (
       !["http:", "https:"].includes(parsed.protocol) ||
@@ -43,6 +46,31 @@ function parseFrontendOrigins(value: string | undefined): string[] {
     }
     return parsed.origin;
   }))];
+}
+
+function assertProductionMongoTls(uri: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(uri);
+  } catch {
+    throw new Error("Production MONGODB_URI must be a valid MongoDB connection string.");
+  }
+
+  const tlsOptions = [...parsed.searchParams.entries()]
+    .filter(([key]) => key.toLowerCase() === "tls" || key.toLowerCase() === "ssl")
+    .map(([, value]) => value.toLowerCase());
+
+  if (tlsOptions.some((value) => value !== "true")) {
+    throw new Error("Production MONGODB_URI must not disable TLS; any TLS option must be true.");
+  }
+
+  if (uri.toLowerCase().startsWith("mongodb+srv://")) {
+    return;
+  }
+
+  if (tlsOptions.length === 0) {
+    throw new Error("Production MONGODB_URI must enable TLS with tls=true (or ssl=true), or use mongodb+srv://.");
+  }
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -59,10 +87,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     throw new Error("MONGODB_URI must use the mongodb:// or mongodb+srv:// scheme.");
   }
 
+  if (rawNodeEnv === "production") {
+    assertProductionMongoTls(mongoUri);
+  }
+
   return {
     nodeEnv: rawNodeEnv as NodeEnvironment,
     port: parsePort(env.PORT),
     mongoUri,
-    frontendOrigins: parseFrontendOrigins(env.FRONTEND_ORIGINS)
+    frontendOrigins: parseFrontendOrigins(env.FRONTEND_ORIGINS, rawNodeEnv === "production")
   };
 }

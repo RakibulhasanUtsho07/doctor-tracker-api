@@ -51,6 +51,128 @@ test("configuration rejects invalid ports and non-origin frontend URLs", () => {
   }), /origins only/);
 });
 
+test("production configuration requires HTTPS frontend origins while development permits localhost HTTP", () => {
+  const base = {
+    MONGODB_URI: "mongodb+srv://cluster.example.com/doctor_tracker_test"
+  };
+
+  assert.throws(
+    () => loadConfig({
+      ...base,
+      NODE_ENV: "production",
+      FRONTEND_ORIGINS: "http://app.example.com"
+    }),
+    /Production FRONTEND_ORIGINS entries must use HTTPS/
+  );
+
+  assert.throws(
+    () => loadConfig({
+      ...base,
+      NODE_ENV: "production",
+      FRONTEND_ORIGINS: "https://app.example.com,http://localhost:3000"
+    }),
+    /Production FRONTEND_ORIGINS entries must use HTTPS/
+  );
+
+  const production = loadConfig({
+    ...base,
+    NODE_ENV: "production",
+    FRONTEND_ORIGINS: "https://app.example.com"
+  });
+  assert.deepEqual(production.frontendOrigins, ["https://app.example.com"]);
+
+  const development = loadConfig({
+    ...base,
+    NODE_ENV: "development",
+    FRONTEND_ORIGINS: "http://localhost:3000"
+  });
+  assert.deepEqual(development.frontendOrigins, ["http://localhost:3000"]);
+});
+
+test("production MongoDB connections require TLS and reject explicit TLS disablement", () => {
+  const frontend = { FRONTEND_ORIGINS: "https://app.example.com" };
+
+  assert.throws(
+    () => loadConfig({
+      NODE_ENV: "production",
+      MONGODB_URI: "mongodb://db.example.com/doctor_tracker",
+      ...frontend
+    }),
+    /must enable TLS/
+  );
+
+  assert.throws(
+    () => loadConfig({
+      NODE_ENV: "production",
+      MONGODB_URI: "mongodb+srv://cluster.example.com/doctor_tracker?tls=false",
+      ...frontend
+    }),
+    /must not disable TLS/
+  );
+
+  assert.throws(
+    () => loadConfig({
+      NODE_ENV: "production",
+      MONGODB_URI: "mongodb+srv://cluster.example.com/doctor_tracker?TLS=false",
+      ...frontend
+    }),
+    /must not disable TLS/
+  );
+
+  assert.throws(
+    () => loadConfig({
+      NODE_ENV: "production",
+      MONGODB_URI: "mongodb://db.example.com/doctor_tracker?tls=true&ssl=false",
+      ...frontend
+    }),
+    /must not disable TLS/
+  );
+
+  const directTls = loadConfig({
+    NODE_ENV: "production",
+    MONGODB_URI: "mongodb://db.example.com/doctor_tracker?tls=true",
+    ...frontend
+  });
+  assert.equal(directTls.mongoUri, "mongodb://db.example.com/doctor_tracker?tls=true");
+
+  const legacySslAlias = loadConfig({
+    NODE_ENV: "production",
+    MONGODB_URI: "mongodb://db.example.com/doctor_tracker?ssl=true",
+    ...frontend
+  });
+  assert.equal(legacySslAlias.mongoUri, "mongodb://db.example.com/doctor_tracker?ssl=true");
+
+  const srvDefault = loadConfig({
+    NODE_ENV: "production",
+    MONGODB_URI: "mongodb+srv://cluster.example.com/doctor_tracker",
+    ...frontend
+  });
+  assert.equal(srvDefault.mongoUri, "mongodb+srv://cluster.example.com/doctor_tracker");
+
+  const localDevelopment = loadConfig({
+    NODE_ENV: "development",
+    MONGODB_URI: "mongodb://127.0.0.1:27017/doctor_tracker_dev",
+    FRONTEND_ORIGINS: "http://localhost:3000"
+  });
+  assert.equal(localDevelopment.mongoUri, "mongodb://127.0.0.1:27017/doctor_tracker_dev");
+});
+
+test("public signup endpoints are not exposed", async () => {
+  await withServer(async (baseUrl) => {
+    const status = await fetch(`${baseUrl}/api/v1/auth/registration-status`);
+    assert.equal(status.status, 404);
+    assert.equal((await status.json() as { error: { code: string } }).error.code, "NOT_FOUND");
+
+    const register = await fetch(`${baseUrl}/api/v1/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "unauthorized@example.test", password: "This account should not be created 2026!" })
+    });
+    assert.equal(register.status, 404);
+    assert.equal((await register.json() as { error: { code: string } }).error.code, "NOT_FOUND");
+  });
+});
+
 test("health endpoint returns liveness data and a request ID", async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/api/v1/health`);

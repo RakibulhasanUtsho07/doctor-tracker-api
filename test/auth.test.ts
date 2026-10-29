@@ -19,6 +19,7 @@ const passwordHash = await hashPassword(password);
 class MemoryAuthRepository implements AuthRepository {
   users = new Map<string, AuthUserWithPassword>();
   sessions = new Map<string, AuthSession>();
+  registrationGateClaimed = false;
 
   async findUserByEmail(email: string): Promise<AuthUserWithPassword | null> {
     return this.users.get(email) ?? null;
@@ -30,6 +31,19 @@ class MemoryAuthRepository implements AuthRepository {
   async createSession(session: AuthSession): Promise<void> { this.sessions.set(session.tokenHash, session); }
   async findSessionByTokenHash(hash: string): Promise<AuthSession | null> { return this.sessions.get(hash) ?? null; }
   async deleteSession(hash: string): Promise<void> { this.sessions.delete(hash); }
+  async isFirstAdminRegistrationOpen(): Promise<boolean> {
+    return this.users.size === 0 && !this.registrationGateClaimed;
+  }
+  async registerFirstAdmin(email: string, submittedHash: string): Promise<AuthUserWithPassword | null> {
+    if (this.users.size > 0 || this.registrationGateClaimed) return null;
+    this.registrationGateClaimed = true;
+    const user: AuthUserWithPassword = {
+      id: "registered-admin-id-1", email, role: "ADMIN", isActive: true,
+      passwordHash: submittedHash
+    };
+    this.users.set(email, user);
+    return user;
+  }
 
   addAdmin(overrides: Partial<AuthUserWithPassword> = {}): AuthUserWithPassword {
     const user: AuthUserWithPassword = {

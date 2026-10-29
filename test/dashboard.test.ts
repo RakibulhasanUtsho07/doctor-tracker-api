@@ -46,6 +46,8 @@ class MemoryAuthRepository implements AuthRepository {
   async createSession(session: AuthSession): Promise<void> { this.sessions.set(session.tokenHash, session); }
   async findSessionByTokenHash(value: string): Promise<AuthSession | null> { return this.sessions.get(value) ?? null; }
   async deleteSession(value: string): Promise<void> { this.sessions.delete(value); }
+  async isFirstAdminRegistrationOpen(): Promise<boolean> { return this.users.size === 0; }
+  async registerFirstAdmin(_email: string, _passwordHash: string): Promise<AuthUserWithPassword | null> { return null; }
 }
 
 class MemoryDashboardRepository implements DashboardRepository {

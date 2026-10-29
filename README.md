@@ -13,7 +13,7 @@ Secure REST API for the Doctor Tracker assignment. Stack: Node.js, Express 5, Ty
 ## Requirements
 - Node.js 22+
 - pnpm 11.x
-- Local/disposable MongoDB
+- MongoDB-compatible database (MongoDB Atlas or local for development; use a disposable `test`-named database for integration tests)
 - Exact frontend origin(s) in `FRONTEND_ORIGINS`
 
 ## Local setup
@@ -22,14 +22,21 @@ pnpm install --frozen-lockfile
 cp .env.example .env
 pnpm dev
 ```
-PowerShell: `Copy-Item .env.example .env`. Configure MongoDB locally; the server fails closed if the database cannot be reached. Never commit `.env` or real secrets.
+PowerShell: `Copy-Item .env.example .env`. Set `MONGODB_URI` to a local MongoDB URI or an Atlas `mongodb+srv://` URI with the database name in the path. For Atlas, create a database user with the required database permissions and allow only your current client IP in Network Access; do not commit `.env` or real secrets. The server fails closed if the database cannot be reached. Integration tests require a disposable database whose name contains `test`; never point them at a database with real records.
 
 ## Create the first administrator
-There is no public registration endpoint and no default password. Set `ADMIN_EMAIL` and a strong `ADMIN_PASSWORD` (14–128 characters) through a secure one-time environment injection, then run:
+
+There is deliberately **no public signup page or registration API**. Create the first administrator only through the operator-controlled CLI bootstrap. No default account/password is created, and the command refuses to overwrite an existing administrator.
+
+Set `ADMIN_EMAIL` and a strong `ADMIN_PASSWORD` (14–128 characters) by secure one-time environment injection, then run:
+
 ```bash
 pnpm bootstrap:admin
 ```
-The command refuses to overwrite an existing account. Remove the two bootstrap variables immediately afterwards; they are not runtime settings. Never put real credentials into source files, PRs or issue comments.
+
+Remove both bootstrap variables from the runtime environment immediately afterwards. Never commit real credentials or place them in frontend variables, URLs, logs or PRs. The CLI uses a durable singleton setup marker and atomically permits only one initial administrator, even across competing bootstrap processes.
+
+If a process is forcibly terminated while holding an incomplete setup marker, the bootstrap fails closed. Only after stopping every API/bootstrap process and verifying that the user collection is empty may an operator remove a marker older than 15 minutes with the guarded `pnpm recover:initial-admin-setup` command. Set `CONFIRM_STALE_INITIAL_ADMIN_SETUP=YES` and optionally `STALE_INITIAL_ADMIN_MINUTES=15` only for that recovery command. It never deletes accounts. Do not run recovery while any bootstrap operation may be active.
 
 ## Implemented API routes
 - `GET /api/v1/health` — process liveness.

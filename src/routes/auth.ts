@@ -1,4 +1,4 @@
-import { Router, type Request, type RequestHandler } from "express";
+import { Router, type Request, type RequestHandler, type Response } from "express";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "../auth/password.js";
 import type { AuthContext } from "../auth/session.js";
 import {
@@ -11,7 +11,7 @@ import {
   requireCsrf,
   setSessionCookie
 } from "../auth/session.js";
-import type { AuthRepository } from "../auth/repository.js";
+import type { AuthRepository, AuthUserWithPassword } from "../auth/repository.js";
 import type { AppConfig } from "../config/env.js";
 import { HttpError } from "../lib/http-error.js";
 
@@ -28,7 +28,7 @@ function clientKey(req: Request): string {
   return req.ip || req.socket.remoteAddress || "unknown";
 }
 
-function createLoginRateLimiter() {
+function createRateLimiter(maxAttempts: number, code: string, message: string) {
   const windows = new Map<string, AttemptWindow>();
 
   const middleware: RequestHandler = (req, res, next) => {
@@ -47,14 +47,14 @@ function createLoginRateLimiter() {
       }
       if (windows.size >= MAX_RATE_LIMIT_KEYS) {
         res.setHeader("Retry-After", String(Math.ceil(LOGIN_WINDOW_MS / 1000)));
-        next(new HttpError(429, "LOGIN_RATE_LIMITED", "Too many login attempts. Try again later."));
+        next(new HttpError(429, code, message));
         return;
       }
     }
 
-    if (entry && entry.count >= LOGIN_MAX_ATTEMPTS) {
+    if (entry && entry.count >= maxAttempts) {
       res.setHeader("Retry-After", String(Math.max(1, Math.ceil((entry.resetAt - now) / 1000))));
-      next(new HttpError(429, "LOGIN_RATE_LIMITED", "Too many login attempts. Try again later."));
+      next(new HttpError(429, code, message));
       return;
     }
 
@@ -103,9 +103,37 @@ function publicUser(user: { id: string; email: string; role: string }) {
   return { id: user.id, email: user.email, role: user.role };
 }
 
+async function establishSession(
+  res: Response,
+  config: AppConfig,
+  repository: AuthRepository,
+  user: AuthUserWithPassword
+): Promise<{ user: ReturnType<typeof publicUser>; csrfToken: string; expiresAt: string }> {
+  const token = newSessionToken();
+  const tokenHash = hashSessionToken(token);
+  const csrfToken = newCsrfToken();
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+  await repository.createSession({
+    tokenHash,
+    userId: user.id,
+    csrfToken,
+    expiresAt
+  });
+  setSessionCookie(res, config, token);
+  return {
+    user: publicUser(user),
+    csrfToken,
+    expiresAt: expiresAt.toISOString()
+  };
+}
+
 export function createAuthRouter(config: AppConfig, repository: AuthRepository): Router {
   const router = Router();
-  const loginLimit = createLoginRateLimiter();
+  const loginLimit = createRateLimiter(
+    LOGIN_MAX_ATTEMPTS,
+    "LOGIN_RATE_LIMITED",
+    "Too many sign-in attempts. Try again later."
+  );
 
   router.use((_req, res, next) => {
     res.setHeader("Cache-Control", "no-store");
@@ -124,25 +152,10 @@ export function createAuthRouter(config: AppConfig, repository: AuthRepository):
         return;
       }
 
-      const token = newSessionToken();
-      const tokenHash = hashSessionToken(token);
-      const csrfToken = newCsrfToken();
-      const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-      await repository.createSession({
-        tokenHash,
-        userId: user.id,
-        csrfToken,
-        expiresAt
-      });
-
+      const session = await establishSession(res, config, repository, user);
       loginLimit.clear(req);
-      setSessionCookie(res, config, token);
       res.status(200).json({
-        data: {
-          user: publicUser(user),
-          csrfToken,
-          expiresAt: expiresAt.toISOString()
-        },
+        data: session,
         meta: { requestId: res.locals.requestId }
       });
     } catch (error) {
