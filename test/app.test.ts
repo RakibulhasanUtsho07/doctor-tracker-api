@@ -92,6 +92,34 @@ test("production configuration requires HTTPS frontend origins while development
   assert.deepEqual(development.frontendOrigins, ["http://localhost:3000"]);
 });
 
+test("Vercel production and preview deployments enforce production security mode", () => {
+  const secureEnvironment = {
+    MONGODB_URI: "mongodb+srv://cluster.example.com/doctor_tracker_test",
+    FRONTEND_ORIGINS: "https://app.example.com"
+  };
+
+  const productionWithoutNodeEnv = loadConfig({
+    ...secureEnvironment,
+    VERCEL_ENV: "production"
+  });
+  assert.equal(productionWithoutNodeEnv.nodeEnv, "production");
+
+  const previewWithMisconfiguredNodeEnv = loadConfig({
+    ...secureEnvironment,
+    NODE_ENV: "development",
+    VERCEL_ENV: "preview"
+  });
+  assert.equal(previewWithMisconfiguredNodeEnv.nodeEnv, "production");
+
+  const localDevelopment = loadConfig({
+    NODE_ENV: "development",
+    VERCEL_ENV: "development",
+    MONGODB_URI: "mongodb://127.0.0.1:27017/doctor_tracker_dev",
+    FRONTEND_ORIGINS: "http://localhost:3000"
+  });
+  assert.equal(localDevelopment.nodeEnv, "development");
+});
+
 test("production MongoDB connections require TLS and reject explicit TLS disablement", () => {
   const frontend = { FRONTEND_ORIGINS: "https://app.example.com" };
 

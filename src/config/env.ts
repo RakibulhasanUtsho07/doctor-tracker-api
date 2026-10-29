@@ -74,7 +74,14 @@ function assertProductionMongoTls(uri: string): void {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
-  const rawNodeEnv = env.NODE_ENV ?? "development";
+  // On deployed Vercel Preview/Production, the platform's deployment context
+  // must win over a missing or misconfigured NODE_ENV. Otherwise auth cookies
+  // fall back to development defaults (non-Secure, SameSite=Strict, dt_session).
+  const deploymentEnvironment = env.VERCEL_ENV?.trim();
+  const rawNodeEnv =
+    deploymentEnvironment === "production" || deploymentEnvironment === "preview"
+      ? "production"
+      : env.NODE_ENV ?? "development";
   if (!["development", "test", "production"].includes(rawNodeEnv)) {
     throw new Error("NODE_ENV must be development, test, or production.");
   }
