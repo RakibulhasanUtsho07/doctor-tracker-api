@@ -1,6 +1,7 @@
 # Security Engineering Standard
 ## Identity and sessions
 - Passwords use Node.js scrypt with a random salt and fixed parameters; never store plaintext or use a default administrator password.
+- The one-time first-admin signup route is disabled in production while the user collection is empty unless `INITIAL_ADMIN_SETUP_TOKEN` is set through the API's secret environment. Configured tokens must contain at least 32 bytes and are compared via fixed-length SHA-256 digests and `timingSafeEqual`; the browser submits the code only in the JSON body, never a URL/storage. Remove it from runtime after setup.
 - The first administrator is provisioned by a one-time command. There is no public registration route and bootstrap refuses to overwrite an existing account.
 - Session bearers are random opaque values delivered only in an HttpOnly cookie. MongoDB stores a SHA-256 digest, user reference, CSRF token and expiry. Sessions are revoked on logout, checked on each protected request and expire after 8 hours.
 - Login returns generic invalid-credential errors and applies a limit of five attempts per client IP per 15-minute window. First-admin registration has a separate five-attempt per-process/IP window. Both in-memory limiters require a shared store before multi-instance scaling.
