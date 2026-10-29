@@ -19,6 +19,7 @@ const passwordHash = await hashPassword(password);
 class MemoryAuthRepository implements AuthRepository {
   users = new Map<string, AuthUserWithPassword>();
   sessions = new Map<string, AuthSession>();
+  registrationGateClaimed = false;
 
   async findUserByEmail(email: string): Promise<AuthUserWithPassword | null> {
     return this.users.get(email) ?? null;
@@ -30,6 +31,19 @@ class MemoryAuthRepository implements AuthRepository {
   async createSession(session: AuthSession): Promise<void> { this.sessions.set(session.tokenHash, session); }
   async findSessionByTokenHash(hash: string): Promise<AuthSession | null> { return this.sessions.get(hash) ?? null; }
   async deleteSession(hash: string): Promise<void> { this.sessions.delete(hash); }
+  async isFirstAdminRegistrationOpen(): Promise<boolean> {
+    return this.users.size === 0 && !this.registrationGateClaimed;
+  }
+  async registerFirstAdmin(email: string, submittedHash: string): Promise<AuthUserWithPassword | null> {
+    if (this.users.size > 0 || this.registrationGateClaimed) return null;
+    this.registrationGateClaimed = true;
+    const user: AuthUserWithPassword = {
+      id: "registered-admin-id-1", email, role: "ADMIN", isActive: true,
+      passwordHash: submittedHash
+    };
+    this.users.set(email, user);
+    return user;
+  }
 
   addAdmin(overrides: Partial<AuthUserWithPassword> = {}): AuthUserWithPassword {
     const user: AuthUserWithPassword = {
@@ -64,6 +78,13 @@ function login(baseUrl: string, email = "ADMIN@example.com", submittedPassword =
   });
 }
 
+function register(baseUrl: string, email = "first-admin@example.com", submittedPassword = password, extra: Record<string, unknown> = {}) {
+  return fetch(`${baseUrl}/api/v1/auth/register`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: submittedPassword, ...extra })
+  });
+}
+
 function cookie(response: Response, name = "dt_session"): string {
   const header = response.headers.get("set-cookie");
   assert.ok(header);
@@ -71,6 +92,71 @@ function cookie(response: Response, name = "dt_session"): string {
   if (!pair?.startsWith(`${name}=`)) throw new Error("Expected session cookie name.");
   return pair;
 }
+
+test("first-admin registration opens initially, creates a session, then closes permanently", async () => {
+  const repo = new MemoryAuthRepository();
+  await withServer(repo, async (url) => {
+    const statusBefore = await fetch(`${url}/api/v1/auth/registration-status`);
+    assert.equal(statusBefore.status, 200);
+    assert.match(statusBefore.headers.get("cache-control") ?? "", /no-store/);
+    assert.equal((await statusBefore.json() as { data: { registrationOpen: boolean } }).data.registrationOpen, true);
+
+    const response = await register(url, " FIRST-ADMIN@EXAMPLE.COM ");
+    const body = await response.json() as { data: { user: { email: string; role: string }; csrfToken: string; expiresAt: string } };
+    assert.equal(response.status, 201);
+    assert.equal(body.data.user.email, "first-admin@example.com");
+    assert.equal(body.data.user.role, "ADMIN");
+    assert.ok(body.data.csrfToken.length >= 40);
+    assert.ok(Number.isFinite(Date.parse(body.data.expiresAt)));
+    assert.equal(Object.hasOwn(body.data.user, "passwordHash"), false);
+    assert.match(response.headers.get("set-cookie") ?? "", /HttpOnly/);
+    assert.equal(repo.sessions.size, 1);
+
+    const statusAfter = await fetch(`${url}/api/v1/auth/registration-status`);
+    assert.equal((await statusAfter.json() as { data: { registrationOpen: boolean } }).data.registrationOpen, false);
+    const second = await register(url, "second-admin@example.com");
+    assert.equal(second.status, 409);
+    assert.equal((await second.json() as { error: { code: string } }).error.code, "REGISTRATION_CLOSED");
+    assert.equal(repo.users.size, 1);
+  });
+});
+
+test("registration validates email, password length and rejects client-supplied roles", async () => {
+  const repo = new MemoryAuthRepository();
+  await withServer(repo, async (url) => {
+    assert.equal((await register(url, "not-an-email")).status, 400);
+    assert.equal((await register(url, "weak@example.com", "short")).status, 400);
+    assert.equal((await register(url, "role@example.com", password, { role: "ADMIN", isActive: true })).status, 400);
+    assert.equal(repo.users.size, 0);
+    assert.equal(await repo.isFirstAdminRegistrationOpen(), true);
+  });
+});
+
+test("concurrent registration attempts can create at most one administrator", async () => {
+  const repo = new MemoryAuthRepository();
+  await withServer(repo, async (url) => {
+    const [one, two] = await Promise.all([
+      register(url, "first@example.com"),
+      register(url, "second@example.com")
+    ]);
+    assert.deepEqual([one.status, two.status].sort((a, b) => a - b), [201, 409]);
+    assert.equal(repo.users.size, 1);
+    assert.equal(repo.sessions.size, 1);
+  });
+});
+
+test("registration is rate limited after five attempts per client window", async () => {
+  const repo = new MemoryAuthRepository();
+  await withServer(repo, async (url) => {
+    for (let i = 0; i < 5; i += 1) {
+      assert.equal((await register(url, "invalid")).status, 400);
+    }
+    const limited = await register(url, "another-invalid");
+    assert.equal(limited.status, 429);
+    assert.equal((await limited.json() as { error: { code: string } }).error.code, "REGISTRATION_RATE_LIMITED");
+    assert.equal(repo.users.size, 0);
+  });
+});
 
 test("login creates an opaque HttpOnly session and returns CSRF token", async () => {
   const repo = new MemoryAuthRepository(); repo.addAdmin();

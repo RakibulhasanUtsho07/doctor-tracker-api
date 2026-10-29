@@ -13,7 +13,7 @@ Secure REST API for the Doctor Tracker assignment. Stack: Node.js, Express 5, Ty
 ## Requirements
 - Node.js 22+
 - pnpm 11.x
-- Local/disposable MongoDB
+- MongoDB-compatible database (MongoDB Atlas or local for development; use a disposable `test`-named database for integration tests)
 - Exact frontend origin(s) in `FRONTEND_ORIGINS`
 
 ## Local setup
@@ -22,10 +22,10 @@ pnpm install --frozen-lockfile
 cp .env.example .env
 pnpm dev
 ```
-PowerShell: `Copy-Item .env.example .env`. Configure MongoDB locally; the server fails closed if the database cannot be reached. Never commit `.env` or real secrets.
+PowerShell: `Copy-Item .env.example .env`. Set `MONGODB_URI` to a local MongoDB URI or an Atlas `mongodb+srv://` URI with the database name in the path. For Atlas, create a database user with the required database permissions and allow only your current client IP in Network Access; do not commit `.env` or real secrets. The server fails closed if the database cannot be reached. Integration tests require a disposable database whose name contains `test`; never point them at a database with real records.
 
 ## Create the first administrator
-There is no public registration endpoint and no default password. Set `ADMIN_EMAIL` and a strong `ADMIN_PASSWORD` (14–128 characters) through a secure one-time environment injection, then run:
+The frontend `/signup` page and `POST /api/v1/auth/register` endpoint support **first-time administrator setup only**. Registration is available only while the user collection is empty; the API atomically claims a setup marker, creates the first ADMIN, issues an HttpOnly session, and closes registration. Later public signup is rejected; there is no user-controlled role assignment or open account-creation endpoint. The CLI bootstrap below uses the same single-use gate. If a process is forcibly terminated while holding an incomplete setup marker, public registration remains closed. After stopping every API/bootstrap process and verifying the user collection is empty, an operator can remove only a marker older than 15 minutes with the guarded `pnpm recover:initial-admin-setup` command; it never deletes accounts. Set `CONFIRM_STALE_INITIAL_ADMIN_SETUP=YES` and optionally `STALE_INITIAL_ADMIN_MINUTES=15` only for that recovery command. Do not run recovery while any signup/bootstrap operation may be active. No default password exists. Set `ADMIN_EMAIL` and a strong `ADMIN_PASSWORD` (14–128 characters) through a secure one-time environment injection, then run:
 ```bash
 pnpm bootstrap:admin
 ```

@@ -1,5 +1,6 @@
 import "dotenv/config";
 import mongoose from "mongoose";
+import { MongooseAuthRepository } from "../src/auth/repository.js";
 import { hashPassword } from "../src/auth/password.js";
 import { loadConfig } from "../src/config/env.js";
 import { UserModel } from "../src/models/user.js";
@@ -18,18 +19,12 @@ async function main(): Promise<void> {
 
   await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 5_000 });
   await UserModel.init();
-  const existing = await UserModel.exists({ emailNormalized: email });
-  if (existing) {
-    throw new Error("An account with that email already exists; bootstrap will not overwrite it.");
+  const passwordHash = await hashPassword(password);
+  const created = await new MongooseAuthRepository().registerFirstAdmin(email, passwordHash);
+  if (!created) {
+    throw new Error("Initial administrator setup is already complete or in progress; no account was changed.");
   }
 
-  const passwordHash = await hashPassword(password);
-  await UserModel.create({
-    emailNormalized: email,
-    passwordHash,
-    role: "ADMIN",
-    isActive: true
-  });
   process.stdout.write("Administrator account created. Remove bootstrap variables from the environment.\n");
 }
 

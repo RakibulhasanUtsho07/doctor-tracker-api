@@ -29,7 +29,7 @@ Privacy: minimum necessary data, synthetic tests/demo and no patient details in 
 - The assignment supplies no controlled condition vocabulary. condition therefore remains bounded free text (maximum 100 characters), not an invented enumeration.
 - A patient can be assigned to zero or one doctor. Removing from a doctor's list detaches the association and preserves the patient record; DELETE /patients/{patientId} permanently deletes the patient.
 - Patient creation and reassignment validate that the target doctor exists. Doctor association changes and destructive mutations require an active admin session and CSRF token.
-- Admin provisioning uses the existing one-time bootstrap flow; there is no public registration endpoint.
+- Initial administrator provisioning supports a single-use public setup page/API and a CLI bootstrap alternative. The first account is always ADMIN, registration closes once any user exists, concurrent setup attempts are serialized by a durable database marker, and clients cannot assign roles. This is not ongoing public user registration.
 
 ## Dashboard aggregation semantics
 - GET /dashboard/summary reports current all-time doctor and patient totals, linked patient counts for every doctor (including zero counts), and daily doctor/patient creation counts.
