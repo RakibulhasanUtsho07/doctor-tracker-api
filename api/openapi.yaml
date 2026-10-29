@@ -65,6 +65,7 @@ paths:
         '429': { description: Rate limited }
   /auth/registration-status:
     get:
+      security: []
       summary: Check whether single-use first-administrator registration is open
       responses:
         '200':
@@ -83,6 +84,7 @@ paths:
                   meta: { type: object }
   /auth/register:
     post:
+      security: []
       summary: Create the first administrator only and establish a session
       requestBody:
         required: true
