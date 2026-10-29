@@ -78,13 +78,6 @@ function login(baseUrl: string, email = "ADMIN@example.com", submittedPassword =
   });
 }
 
-function register(baseUrl: string, email = "first-admin@example.com", submittedPassword = password, extra: Record<string, unknown> = {}) {
-  return fetch(`${baseUrl}/api/v1/auth/register`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password: submittedPassword, ...extra })
-  });
-}
-
 function cookie(response: Response, name = "dt_session"): string {
   const header = response.headers.get("set-cookie");
   assert.ok(header);
@@ -92,117 +85,6 @@ function cookie(response: Response, name = "dt_session"): string {
   if (!pair?.startsWith(`${name}=`)) throw new Error("Expected session cookie name.");
   return pair;
 }
-
-test("first-admin registration opens initially, creates a session, then closes permanently", async () => {
-  const repo = new MemoryAuthRepository();
-  await withServer(repo, async (url) => {
-    const statusBefore = await fetch(`${url}/api/v1/auth/registration-status`);
-    assert.equal(statusBefore.status, 200);
-    assert.match(statusBefore.headers.get("cache-control") ?? "", /no-store/);
-    assert.equal((await statusBefore.json() as { data: { registrationOpen: boolean } }).data.registrationOpen, true);
-
-    const response = await register(url, " FIRST-ADMIN@EXAMPLE.COM ");
-    const body = await response.json() as { data: { user: { email: string; role: string }; csrfToken: string; expiresAt: string } };
-    assert.equal(response.status, 201);
-    assert.equal(body.data.user.email, "first-admin@example.com");
-    assert.equal(body.data.user.role, "ADMIN");
-    assert.ok(body.data.csrfToken.length >= 40);
-    assert.ok(Number.isFinite(Date.parse(body.data.expiresAt)));
-    assert.equal(Object.hasOwn(body.data.user, "passwordHash"), false);
-    assert.match(response.headers.get("set-cookie") ?? "", /HttpOnly/);
-    assert.equal(repo.sessions.size, 1);
-
-    const statusAfter = await fetch(`${url}/api/v1/auth/registration-status`);
-    assert.equal((await statusAfter.json() as { data: { registrationOpen: boolean } }).data.registrationOpen, false);
-    const second = await register(url, "second-admin@example.com");
-    assert.equal(second.status, 409);
-    assert.equal((await second.json() as { error: { code: string } }).error.code, "REGISTRATION_CLOSED");
-    assert.equal(repo.users.size, 1);
-  });
-});
-
-test("registration validates email, password length and rejects client-supplied roles", async () => {
-  const repo = new MemoryAuthRepository();
-  await withServer(repo, async (url) => {
-    assert.equal((await register(url, "not-an-email")).status, 400);
-    assert.equal((await register(url, "weak@example.com", "short")).status, 400);
-    assert.equal((await register(url, "role@example.com", password, { role: "ADMIN", isActive: true })).status, 400);
-    assert.equal(repo.users.size, 0);
-    assert.equal(await repo.isFirstAdminRegistrationOpen(), true);
-  });
-});
-
-test("production first-admin setup requires a configured out-of-band setup code", async () => {
-  const repo = new MemoryAuthRepository();
-  const production = { ...config, nodeEnv: "production" as const, initialAdminSetupToken: null };
-
-  await withServer(repo, async (url) => {
-    const statusResponse = await fetch(`${url}/api/v1/auth/registration-status`);
-    const status = await statusResponse.json() as {
-      data: { registrationOpen: boolean; setupCodeRequired: boolean; setupDisabled: boolean };
-    };
-    assert.equal(status.data.registrationOpen, false);
-    assert.equal(status.data.setupCodeRequired, false);
-    assert.equal(status.data.setupDisabled, true);
-
-    const response = await register(url, "first@example.com");
-    assert.equal(response.status, 503);
-    assert.equal((await response.json() as { error: { code: string } }).error.code, "REGISTRATION_SETUP_DISABLED");
-    assert.equal(repo.users.size, 0);
-  }, production);
-});
-
-test("configured first-admin setup code is required, compared securely, and never grants a second account", async () => {
-  const repo = new MemoryAuthRepository();
-  const setupCode = "one-time-setup-code-".padEnd(48, "x");
-  const appConfig = { ...config, initialAdminSetupToken: setupCode };
-
-  await withServer(repo, async (url) => {
-    const statusResponse = await fetch(`${url}/api/v1/auth/registration-status`);
-    const status = await statusResponse.json() as {
-      data: { registrationOpen: boolean; setupCodeRequired: boolean; setupDisabled: boolean };
-    };
-    assert.equal(status.data.registrationOpen, true);
-    assert.equal(status.data.setupCodeRequired, true);
-    assert.equal(status.data.setupDisabled, false);
-
-    assert.equal((await register(url, "first@example.com")).status, 403);
-    assert.equal((await register(url, "first@example.com", password, { setupToken: "incorrect-code".padEnd(48, "x") })).status, 403);
-    const created = await register(url, "first@example.com", password, { setupToken: setupCode });
-    assert.equal(created.status, 201);
-    assert.equal(repo.users.size, 1);
-
-    const second = await register(url, "second@example.com", password, { setupToken: setupCode });
-    assert.equal(second.status, 409);
-    assert.equal(repo.users.size, 1);
-  }, appConfig);
-});
-
-test("concurrent registration attempts can create at most one administrator", async () => {
-  const repo = new MemoryAuthRepository();
-  await withServer(repo, async (url) => {
-    const [one, two] = await Promise.all([
-      register(url, "first@example.com"),
-      register(url, "second@example.com")
-    ]);
-    assert.deepEqual([one.status, two.status].sort((a, b) => a - b), [201, 409]);
-    assert.equal(repo.users.size, 1);
-    assert.equal(repo.sessions.size, 1);
-  });
-});
-
-test("registration is rate limited after five attempts per client window", async () => {
-  const repo = new MemoryAuthRepository();
-  await withServer(repo, async (url) => {
-    for (let i = 0; i < 5; i += 1) {
-      assert.equal((await register(url, "invalid")).status, 400);
-    }
-    const limited = await register(url, "another-invalid");
-    assert.equal(limited.status, 429);
-    assert.equal((await limited.json() as { error: { code: string } }).error.code, "REGISTRATION_RATE_LIMITED");
-    assert.equal(repo.users.size, 0);
-  });
-});
 
 test("login creates an opaque HttpOnly session and returns CSRF token", async () => {
   const repo = new MemoryAuthRepository(); repo.addAdmin();

@@ -10,7 +10,7 @@ const MAXIMUM_STALE_MINUTES = 24 * 60;
 async function main(): Promise<void> {
   if (process.env.CONFIRM_STALE_INITIAL_ADMIN_SETUP !== "YES") {
     throw new Error(
-      "Refusing recovery. Stop every API instance and bootstrap process, verify no signup is active, then set CONFIRM_STALE_INITIAL_ADMIN_SETUP=YES."
+      "Refusing recovery. Stop every API instance and bootstrap process, verify no bootstrap is active, then set CONFIRM_STALE_INITIAL_ADMIN_SETUP=YES."
     );
   }
 
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
 
     process.stdout.write(
       "Removed the stale, incomplete initial-admin setup marker. No user data was deleted. " +
-      "Registration can reopen only if the user collection remains empty.\n"
+      "CLI bootstrap can be retried only if the user collection remains empty.\n"
     );
   } finally {
     await mongoose.disconnect();

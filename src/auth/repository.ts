@@ -106,7 +106,7 @@ export class MongooseAuthRepository implements AuthRepository {
   ): Promise<AuthUserWithPassword | null> {
     if (!(await this.isFirstAdminRegistrationOpen())) return null;
 
-    // The singleton marker serializes public signup and the CLI bootstrap flow.
+    // The singleton marker serializes competing CLI bootstrap attempts.
     // Only one request/process can claim this _id at a time.
     try {
       await InitialAdminSetupModel.create({

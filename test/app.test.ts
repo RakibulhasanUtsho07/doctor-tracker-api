@@ -157,23 +157,20 @@ test("production MongoDB connections require TLS and reject explicit TLS disable
   assert.equal(localDevelopment.mongoUri, "mongodb://127.0.0.1:27017/doctor_tracker_dev");
 });
 
-test("production first-admin setup token is optional but validated when configured", () => {
-  const base = {
-    NODE_ENV: "production",
-    MONGODB_URI: "mongodb+srv://cluster.example.com/doctor_tracker_dev",
-    FRONTEND_ORIGINS: "https://app.example.com"
-  };
-  const disabled = loadConfig(base);
-  assert.equal(disabled.initialAdminSetupToken, null);
+test("public signup endpoints are not exposed", async () => {
+  await withServer(async (baseUrl) => {
+    const status = await fetch(`${baseUrl}/api/v1/auth/registration-status`);
+    assert.equal(status.status, 404);
+    assert.equal((await status.json() as { error: { code: string } }).error.code, "NOT_FOUND");
 
-  assert.throws(
-    () => loadConfig({ ...base, INITIAL_ADMIN_SETUP_TOKEN: "too-short" }),
-    /INITIAL_ADMIN_SETUP_TOKEN must be at least 32 bytes/
-  );
-
-  const token = "a".repeat(48);
-  const enabled = loadConfig({ ...base, INITIAL_ADMIN_SETUP_TOKEN: token });
-  assert.equal(enabled.initialAdminSetupToken, token);
+    const register = await fetch(`${baseUrl}/api/v1/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "unauthorized@example.test", password: "This account should not be created 2026!" })
+    });
+    assert.equal(register.status, 404);
+    assert.equal((await register.json() as { error: { code: string } }).error.code, "NOT_FOUND");
+  });
 });
 
 test("health endpoint returns liveness data and a request ID", async () => {

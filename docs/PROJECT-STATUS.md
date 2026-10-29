@@ -1,4 +1,11 @@
 # Project Status
+
+## Current scope decision — public signup removed (2026-10-29)
+
+Initial administrator creation is operator-only through `pnpm bootstrap:admin`, with `ADMIN_EMAIL` and `ADMIN_PASSWORD` securely injected for the one-time command. Public `/auth/registration-status`, `/auth/register`, and browser `/signup` are not part of the product and are being removed from the current development scope. The durable initial-admin setup marker and guarded recovery command remain to protect CLI bootstrap from overwrite and concurrent claims. Login/session and doctor/patient/dashboard endpoints remain unchanged. No `main` branch is being updated by this work.
+
+Older signup notes, if encountered in historical PRs or dated records, describe prior implementation only and do not represent current intended routes.
+
 Last verified: 2026-10-27
 
 ## Completed and merged to dev

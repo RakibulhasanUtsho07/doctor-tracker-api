@@ -1,6 +1,5 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { Router, type Request, type RequestHandler, type Response } from "express";
-import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "../auth/password.js";
+import { DUMMY_PASSWORD_HASH, verifyPassword } from "../auth/password.js";
 import type { AuthContext } from "../auth/session.js";
 import {
   SESSION_TTL_MS,
@@ -100,55 +99,6 @@ function parseLoginBody(body: unknown): { email: string; password: string } {
   return { email, password: record.password };
 }
 
-function parseRegistrationBody(
-  body: unknown,
-  setupTokenRequired: boolean
-): { email: string; password: string; setupToken?: string } {
-  if (typeof body !== "object" || body === null || Array.isArray(body)) {
-    throw new HttpError(400, "VALIDATION_ERROR", "Provide an email and password.");
-  }
-  const record = body as Record<string, unknown>;
-  const allowedFields = setupTokenRequired ? ["email", "password", "setupToken"] : ["email", "password"];
-  if (Object.keys(record).some((key) => !allowedFields.includes(key))) {
-    throw new HttpError(400, "VALIDATION_ERROR", "Unexpected registration fields are not allowed.");
-  }
-  if (typeof record.email !== "string" || typeof record.password !== "string") {
-    throw new HttpError(400, "VALIDATION_ERROR", "Provide an email and password.");
-  }
-  if (
-    setupTokenRequired &&
-    record.setupToken !== undefined &&
-    (typeof record.setupToken !== "string" || record.setupToken.length > 512)
-  ) {
-    throw new HttpError(400, "VALIDATION_ERROR", "Provide a valid one-time setup code.");
-  }
-
-  const email = record.email.trim().toLowerCase();
-  if (
-    email.length < 3 ||
-    email.length > 254 ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    record.password.length < 14 ||
-    record.password.length > 128 ||
-    Buffer.byteLength(record.password, "utf8") > 1024
-  ) {
-    throw new HttpError(400, "VALIDATION_ERROR", "Provide a valid email and a password between 14 and 128 characters.");
-  }
-  return {
-    email,
-    password: record.password,
-    ...(typeof record.setupToken === "string" ? { setupToken: record.setupToken } : {})
-  };
-}
-
-function matchesSetupToken(candidate: string | undefined, expected: string): boolean {
-  // Compare fixed-length digests so unequal candidate lengths do not bypass
-  // timingSafeEqual or cause a length-dependent early return.
-  const candidateDigest = createHash("sha256").update(candidate ?? "", "utf8").digest();
-  const expectedDigest = createHash("sha256").update(expected, "utf8").digest();
-  return timingSafeEqual(candidateDigest, expectedDigest);
-}
-
 function publicUser(user: { id: string; email: string; role: string }) {
   return { id: user.id, email: user.email, role: user.role };
 }
@@ -184,88 +134,10 @@ export function createAuthRouter(config: AppConfig, repository: AuthRepository):
     "LOGIN_RATE_LIMITED",
     "Too many sign-in attempts. Try again later."
   );
-  const registrationLimit = createRateLimiter(
-    LOGIN_MAX_ATTEMPTS,
-    "REGISTRATION_RATE_LIMITED",
-    "Too many registration attempts. Try again later."
-  );
 
   router.use((_req, res, next) => {
     res.setHeader("Cache-Control", "no-store");
     next();
-  });
-
-  router.get("/registration-status", async (_req, res, next) => {
-    try {
-      const setupClaimOpen = await repository.isFirstAdminRegistrationOpen();
-      const setupDisabled = setupClaimOpen &&
-        config.nodeEnv === "production" &&
-        !config.initialAdminSetupToken;
-      res.status(200).json({
-        data: {
-          registrationOpen: setupClaimOpen && !setupDisabled,
-          setupCodeRequired: Boolean(config.initialAdminSetupToken),
-          setupDisabled
-        },
-        meta: { requestId: res.locals.requestId }
-      });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  router.post("/register", registrationLimit.middleware, async (req, res, next) => {
-    try {
-      if (!(await repository.isFirstAdminRegistrationOpen())) {
-        next(new HttpError(
-          409,
-          "REGISTRATION_CLOSED",
-          "Initial registration is unavailable. Sign in if you already have an account or contact the system operator."
-        ));
-        return;
-      }
-
-      if (config.nodeEnv === "production" && !config.initialAdminSetupToken) {
-        next(new HttpError(
-          503,
-          "REGISTRATION_SETUP_DISABLED",
-          "Initial administrator setup is disabled until the system operator configures a one-time setup code."
-        ));
-        return;
-      }
-
-      const { email, password, setupToken } = parseRegistrationBody(
-        req.body,
-        Boolean(config.initialAdminSetupToken)
-      );
-      if (
-        config.initialAdminSetupToken &&
-        !matchesSetupToken(setupToken, config.initialAdminSetupToken)
-      ) {
-        next(new HttpError(403, "INVALID_SETUP_CODE", "The one-time setup code is invalid."));
-        return;
-      }
-
-      const passwordHash = await hashPassword(password);
-      const user = await repository.registerFirstAdmin(email, passwordHash);
-      if (!user) {
-        next(new HttpError(
-          409,
-          "REGISTRATION_CLOSED",
-          "Initial registration is unavailable. Sign in if you already have an account or contact the system operator."
-        ));
-        return;
-      }
-
-      const session = await establishSession(res, config, repository, user);
-      registrationLimit.clear(req);
-      res.status(201).json({
-        data: session,
-        meta: { requestId: res.locals.requestId }
-      });
-    } catch (error) {
-      next(error);
-    }
   });
 
   router.post("/login", loginLimit.middleware, async (req, res, next) => {
