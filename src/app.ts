@@ -87,7 +87,7 @@ export function createApp(
           event: "database_connection_failed",
           requestId,
           errorType
-        }) + "\\n");
+        }) + "\n");
 
         if (res.headersSent) {
           next(error);
@@ -165,7 +165,7 @@ vercelApp.use((req, res, next) => {
       level: "error",
       event: "api_runtime_configuration_invalid",
       errorType
-    }) + "\\n");
+    }) + "\n");
     if (res.headersSent) {
       next(error);
       return;
