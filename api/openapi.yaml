@@ -63,6 +63,37 @@ paths:
         '400': { description: Invalid request shape }
         '401': { description: Invalid credentials }
         '429': { description: Rate limited }
+  /auth/registration-status:
+    get:
+      summary: Check whether single-use first-administrator registration is open
+      responses:
+        '200':
+          description: no-store registration status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [registrationOpen]
+                    properties:
+                      registrationOpen: { type: boolean }
+                  meta: { type: object }
+  /auth/register:
+    post:
+      summary: Create the first administrator only and establish a session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InitialAdminRegistrationInput' }
+      responses:
+        '201': { description: First administrator created; HttpOnly session cookie and CSRF token returned }
+        '400': { description: Invalid email/password or unexpected fields }
+        '409': { description: REGISTRATION_CLOSED; initial setup is already complete or in progress }
+        '429': { description: Registration attempts rate limited }
   /auth/logout:
     post:
       summary: Revoke the current session
@@ -258,6 +289,13 @@ components:
             code: { type: string }
             message: { type: string }
             requestId: { type: string, format: uuid }
+    InitialAdminRegistrationInput:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, minLength: 3, maxLength: 254 }
+        password: { type: string, format: password, minLength: 14, maxLength: 128 }
     DoctorInput:
       type: object
       additionalProperties: false
