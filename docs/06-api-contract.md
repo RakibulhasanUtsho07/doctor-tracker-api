@@ -5,7 +5,7 @@ Base path: /api/v1. Keep api/openapi.yaml synchronized with implementation.
 - GET /health: liveness only.
 - GET /ready: 200 only when MongoDB is connected; otherwise 503.
 - GET /auth/registration-status: returns whether the single-use initial administrator registration is open; response is no-store.
-- POST /auth/register: accepts only email/password (password 14–128 characters), is IP-rate-limited, and creates the first ADMIN only while the user collection is empty. The request claims an atomic database setup marker; on success it returns a session cookie plus CSRF token and permanently closes public registration. Subsequent attempts return 409 REGISTRATION_CLOSED. Client-supplied role/activation fields are rejected.
+- POST /auth/register: accepts only email/password (password 14–128 characters), is IP-rate-limited, and creates the first ADMIN only while the user collection is empty. The request claims an atomic database setup marker; on success it returns a session cookie plus CSRF token and permanently closes public registration. Subsequent attempts return 409 REGISTRATION_CLOSED. Client-supplied role/activation fields are rejected. A stale incomplete setup marker is recoverable only through the guarded operator CLI command when all API/bootstrap processes are stopped and no user exists; the public endpoints never clear a marker.
 - POST /auth/login: accepts only email/password. Uses a generic 401 for incorrect credentials and returns a session cookie plus CSRF token.
 - GET /auth/me: requires the session cookie and returns the current active admin, CSRF token and session expiry.
 - POST /auth/logout: requires the session cookie and matching X-CSRF-Token; revokes the server-side session and clears the cookie.
