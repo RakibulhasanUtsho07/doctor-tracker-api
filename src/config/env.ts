@@ -5,6 +5,8 @@ export interface AppConfig {
   port: number;
   mongoUri: string;
   frontendOrigins: string[];
+  /** Optional out-of-band claim token; production signup fails closed when unset. */
+  initialAdminSetupToken?: string | null;
 }
 
 function parsePort(value: string | undefined): number {
@@ -91,10 +93,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     assertProductionMongoTls(mongoUri);
   }
 
+  const initialAdminSetupToken = env.INITIAL_ADMIN_SETUP_TOKEN?.trim() || null;
+  if (initialAdminSetupToken && Buffer.byteLength(initialAdminSetupToken, "utf8") < 32) {
+    throw new Error("INITIAL_ADMIN_SETUP_TOKEN must be at least 32 bytes when configured.");
+  }
+
   return {
     nodeEnv: rawNodeEnv as NodeEnvironment,
     port: parsePort(env.PORT),
     mongoUri,
-    frontendOrigins: parseFrontendOrigins(env.FRONTEND_ORIGINS, rawNodeEnv === "production")
+    frontendOrigins: parseFrontendOrigins(env.FRONTEND_ORIGINS, rawNodeEnv === "production"),
+    initialAdminSetupToken
   };
 }
