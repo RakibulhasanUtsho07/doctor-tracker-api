@@ -78,9 +78,11 @@ paths:
                 properties:
                   data:
                     type: object
-                    required: [registrationOpen]
+                    required: [registrationOpen, setupCodeRequired, setupDisabled]
                     properties:
                       registrationOpen: { type: boolean }
+                      setupCodeRequired: { type: boolean, description: True when INITIAL_ADMIN_SETUP_TOKEN is configured. }
+                      setupDisabled: { type: boolean, description: True when production setup is open but no setup token is configured. }
                   meta: { type: object }
   /auth/register:
     post:
@@ -94,8 +96,10 @@ paths:
       responses:
         '201': { description: First administrator created; HttpOnly session cookie and CSRF token returned }
         '400': { description: Invalid email/password or unexpected fields }
+        '403': { description: INVALID_SETUP_CODE when the configured setup code is missing or incorrect }
         '409': { description: REGISTRATION_CLOSED; initial setup is already complete or in progress }
         '429': { description: Registration attempts rate limited }
+        '503': { description: REGISTRATION_SETUP_DISABLED when production setup has no configured token }
   /auth/logout:
     post:
       summary: Revoke the current session
@@ -298,6 +302,7 @@ components:
       properties:
         email: { type: string, format: email, minLength: 3, maxLength: 254 }
         password: { type: string, format: password, minLength: 14, maxLength: 128 }
+        setupToken: { type: string, minLength: 32, maxLength: 512, description: Required when the API reports setupCodeRequired=true. Never pass in a URL or log it. }
     DoctorInput:
       type: object
       additionalProperties: false
