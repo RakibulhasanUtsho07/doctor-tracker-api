@@ -1,13 +1,10 @@
 import "dotenv/config";
 import { createServer } from "node:http";
 import mongoose from "mongoose";
-import { AuthSessionModel } from "./models/auth-session.js";
-import { UserModel } from "./models/user.js";
-import { DoctorModel } from "./models/doctor.js";
-import { PatientModel } from "./models/patient.js";
 import type { AppConfig } from "./config/env.js";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config/env.js";
+import { ensureDatabaseConnected } from "./database/connect.js";
 
 let config: AppConfig;
 try {
@@ -19,8 +16,7 @@ try {
 }
 
 async function start(): Promise<void> {
-  await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 5_000 });
-  await Promise.all([UserModel.init(), AuthSessionModel.init(), DoctorModel.init(), PatientModel.init()]);
+  await ensureDatabaseConnected(config);
 
   const app = createApp(config);
   const server = createServer(app);
