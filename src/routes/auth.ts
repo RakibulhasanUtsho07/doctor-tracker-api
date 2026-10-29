@@ -127,7 +127,7 @@ function parseRegistrationBody(
   if (
     email.length < 3 ||
     email.length > 254 ||
-    !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
     record.password.length < 14 ||
     record.password.length > 128 ||
     Buffer.byteLength(record.password, "utf8") > 1024
