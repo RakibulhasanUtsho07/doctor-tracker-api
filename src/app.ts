@@ -39,9 +39,11 @@ export function createApp(
   dashboardRepository: DashboardRepository = new MongooseDashboardRepository()
 ) {
   const app = express();
+  // Helmet is a callable default export at runtime; normalize legacy module typings for TS builds.
+  const helmetFactory = helmet as unknown as () => RequestHandler;
   app.disable("x-powered-by");
   if (config.nodeEnv === "production") app.set("trust proxy", 1);
-  app.use(helmet());
+  app.use(helmetFactory());
   app.use(requestIdMiddleware);
   app.use(originGuard(config.frontendOrigins));
   app.use(cors({
