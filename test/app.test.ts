@@ -4,7 +4,7 @@ import test from "node:test";
 import type { AddressInfo } from "node:net";
 import type { AppConfig } from "../src/config/env.js";
 import { loadConfig } from "../src/config/env.js";
-import { createApp } from "../src/app.js";
+import vercelApp, { createApp } from "../src/app.js";
 
 const testConfig: AppConfig = {
   nodeEnv: "test",
@@ -13,8 +13,11 @@ const testConfig: AppConfig = {
   frontendOrigins: ["http://localhost:3000"]
 };
 
-async function withServer(run: (baseUrl: string) => Promise<void>): Promise<void> {
-  const server = createApp(testConfig).listen(0, "127.0.0.1");
+async function withServer(
+  run: (baseUrl: string) => Promise<void>,
+  app: ReturnType<typeof createApp> = createApp(testConfig)
+): Promise<void> {
+  const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
   if (!address || typeof address === "string") {
@@ -252,4 +255,37 @@ test("oversized JSON body returns 413", async () => {
     assert.equal(response.status, 413);
     assert.equal(body.error.code, "PAYLOAD_TOO_LARGE");
   });
+});
+
+test("Vercel default Express entrypoint exports a working app without requiring MongoDB for liveness", async () => {
+  const prior = {
+    NODE_ENV: process.env.NODE_ENV,
+    MONGODB_URI: process.env.MONGODB_URI,
+    FRONTEND_ORIGINS: process.env.FRONTEND_ORIGINS
+  };
+  process.env.NODE_ENV = "test";
+  process.env.MONGODB_URI = testConfig.mongoUri;
+  process.env.FRONTEND_ORIGINS = testConfig.frontendOrigins.join(",");
+
+  try {
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/v1/health`);
+      const body = await response.json() as {
+        data: { status: string; service: string };
+        meta: { requestId: string };
+      };
+      assert.equal(response.status, 200);
+      assert.equal(body.data.status, "ok");
+      assert.equal(body.data.service, "doctor-tracker-api");
+      assert.ok(body.meta.requestId);
+      assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+    }, vercelApp);
+  } finally {
+    if (prior.NODE_ENV === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = prior.NODE_ENV;
+    if (prior.MONGODB_URI === undefined) delete process.env.MONGODB_URI;
+    else process.env.MONGODB_URI = prior.MONGODB_URI;
+    if (prior.FRONTEND_ORIGINS === undefined) delete process.env.FRONTEND_ORIGINS;
+    else process.env.FRONTEND_ORIGINS = prior.FRONTEND_ORIGINS;
+  }
 });

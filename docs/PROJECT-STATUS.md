@@ -1,4 +1,11 @@
 # Project Status
+Last verified: 2026-10-30
+
+## Vercel Express runtime incident — remediation candidate
+
+Production Runtime Logs on 2026-10-30 reported: `Invalid export found in module "/var/task/src/app.js". The default export must be a function or server.` The API's `src/app.ts` exposed only the named `createApp()` factory, so Vercel's Express entrypoint discovery had no default application to invoke. The remediation candidate exports a default Express application, initializes its runtime configuration lazily, shares a retryable Mongoose connection initializer, and returns a sanitized `503 DATABASE_UNAVAILABLE` response when MongoDB cannot be reached. The liveness endpoint remains independent of MongoDB.
+
+**Acceptance remains BLOCKED** until the candidate's exact-head API CI passes, a new Vercel Production deployment responds successfully at `/api/v1/health`, `/api/v1/ready` reports database readiness, and deployed frontend CORS/session-cookie acceptance succeeds. A Vercel deployment marked `Ready` alone is not runtime acceptance.
 
 ## Current scope decision — public signup removed (2026-10-29)
 
