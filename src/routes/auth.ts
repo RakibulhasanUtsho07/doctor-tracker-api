@@ -1,6 +1,6 @@
 import { Router, type Request, type RequestHandler, type Response } from "express";
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "../auth/password.js";
-import type { AuthContext, } from "../auth/session.js";
+import type { AuthContext } from "../auth/session.js";
 import {
   SESSION_TTL_MS,
   clearSessionCookie,
@@ -185,6 +185,14 @@ export function createAuthRouter(config: AppConfig, repository: AuthRepository):
   router.post("/register", registrationLimit.middleware, async (req, res, next) => {
     try {
       const { email, password } = parseRegistrationBody(req.body);
+      if (!(await repository.isFirstAdminRegistrationOpen())) {
+        next(new HttpError(
+          409,
+          "REGISTRATION_CLOSED",
+          "Initial registration is unavailable. Sign in if you already have an account or contact the system operator."
+        ));
+        return;
+      }
       const passwordHash = await hashPassword(password);
       const user = await repository.registerFirstAdmin(email, passwordHash);
       if (!user) {
