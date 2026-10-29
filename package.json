@@ -12,6 +12,7 @@
     "test": "node --import tsx --test test/app.test.ts test/auth.test.ts test/doctors.test.ts test/patients.test.ts test/dashboard.test.ts",
     "test:integration": "node --import tsx --test test/auth-db.integration.test.ts test/registration-db.integration.test.ts test/doctor-db.integration.test.ts test/patient-db.integration.test.ts test/dashboard-db.integration.test.ts",
     "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
+    "recover:initial-admin-setup": "tsx scripts/recover-initial-admin-setup.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "keywords": [],
