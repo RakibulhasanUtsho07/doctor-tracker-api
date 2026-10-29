@@ -14,10 +14,10 @@ Use deterministic synthetic data and disposable test DB. Assert tests cannot tar
 Relevant tests and quality checks pass; critical/high issues are addressed or formally accepted; traceability updated; no secrets or patient data committed; PR records requirement IDs and evidence.
 
 
-## Production initial-admin setup-code hardening — 2026-10-29
+## Operator-only initial administrator provisioning
 
-- Production with an empty user collection and no `INITIAL_ADMIN_SETUP_TOKEN` must report `setupDisabled=true`, `registrationOpen=false`, and reject direct `POST /auth/register` with 503.
-- When the token is configured (minimum 32 bytes), the registration status reports that a code is required; missing/incorrect tokens are rejected with 403 before password hashing, while the correct code allows exactly one first ADMIN.
-- Configuration tests reject a too-short configured token and preserve local-development behavior when the setting is absent.
-- Frontend tests exercise the code-required flow, assert the code is sent only in the registration request body, verify browser storage remains empty, scan the code field for accessibility, and verify the disabled-production state does not render a registration form.
-- These tests do not replace secure deployment secret handling or live production validation. Never set `INITIAL_ADMIN_SETUP_TOKEN` as a public frontend environment variable or put it in a URL/log.
+- The API has no public signup or registration-status endpoint; unauthenticated registration requests must fall through to the stable 404 error envelope.
+- The CLI bootstrap command must refuse to overwrite an existing account and use a durable database marker so competing bootstrap attempts create at most one ADMIN.
+- MongoDB integration coverage uses a generated disposable test database, confirms one successful claim, confirms subsequent claims are rejected, and verifies CLI bootstrap does not create browser sessions.
+- Recovery of an incomplete setup marker remains a separate explicit operator action requiring stopped API/bootstrap processes, an empty user collection, a sufficiently old incomplete marker, and confirmation.
+- These checks do not replace secure credential injection or deployed login/session acceptance.
