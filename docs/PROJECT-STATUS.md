@@ -7,6 +7,12 @@ Production Runtime Logs on 2026-10-30 reported: `Invalid export found in module 
 
 **Acceptance remains BLOCKED** until the candidate's exact-head API CI passes, a new Vercel Production deployment responds successfully at `/api/v1/health`, `/api/v1/ready` reports database readiness, and deployed frontend CORS/session-cookie acceptance succeeds. A Vercel deployment marked `Ready` alone is not runtime acceptance.
 
+## Vercel authentication cookie mode — remediation candidate (2026-10-30)
+
+Live unauthenticated `GET /api/v1/auth/me` returned a clearing cookie named `dt_session` with `SameSite=Strict` and no `Secure`, which is the API's development-mode cookie shape. The production implementation instead uses `__Host-dt_session; Secure; SameSite=None` for the cross-origin frontend/API session. This explains why a login could appear successful, then the first authenticated dashboard request return `401` and the frontend ask the user to sign in again.
+
+The config candidate now treats Vercel `VERCEL_ENV=production` and `VERCEL_ENV=preview` as production-security environments, including when `NODE_ENV` is missing or incorrectly says `development`. Automated regression coverage is being added for these deployment contexts. Release acceptance remains BLOCKED until exact-head CI passes, the updated API is deployed, browser login proves the session cookie is stored and sent, and the authenticated dashboard succeeds.
+
 ## Current scope decision — public signup removed (2026-10-29)
 
 Initial administrator creation is operator-only through `pnpm bootstrap:admin`, with `ADMIN_EMAIL` and `ADMIN_PASSWORD` securely injected for the one-time command. Public `/auth/registration-status`, `/auth/register`, and browser `/signup` are not part of the product and are being removed from the current development scope. The durable initial-admin setup marker and guarded recovery command remain to protect CLI bootstrap from overwrite and concurrent claims. Login/session and doctor/patient/dashboard endpoints remain unchanged. No `main` branch is being updated by this work.
