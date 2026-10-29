@@ -34,6 +34,8 @@ The command refuses to overwrite an existing account. Remove the two bootstrap v
 ## Implemented API routes
 - `GET /api/v1/health` — process liveness.
 - `GET /api/v1/ready` — MongoDB readiness.
+- `GET /api/v1/auth/registration-status` — reports single-use first-admin setup status without caching.
+- `POST /api/v1/auth/register` — creates only the first ADMIN and returns an HttpOnly session + CSRF token. In production, an out-of-band `INITIAL_ADMIN_SETUP_TOKEN` (32+ bytes) must be configured and supplied; without it the API returns 503 while setup is still open. Remove the secret from runtime configuration after setup.
 - `POST /api/v1/auth/login` — verifies an admin and sets an opaque HttpOnly session cookie; returns the CSRF token in JSON.
 - `GET /api/v1/auth/me` — returns the active admin and CSRF token for page reload.
 - `POST /api/v1/auth/logout` — requires the session cookie and `X-CSRF-Token`; revokes the session and clears the cookie.
