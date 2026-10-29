@@ -32,6 +32,7 @@ function originGuard(allowedOrigins: string[]): RequestHandler {
 }
 
 export function createApp(
+const helmetFactory = helmet as unknown as () => RequestHandler;
   config: AppConfig,
   authRepository: AuthRepository = new MongooseAuthRepository(),
   doctorRepository: DoctorRepository = new MongooseDoctorRepository(),
