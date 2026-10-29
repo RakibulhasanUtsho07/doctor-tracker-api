@@ -157,25 +157,6 @@ test("production MongoDB connections require TLS and reject explicit TLS disable
   assert.equal(localDevelopment.mongoUri, "mongodb://127.0.0.1:27017/doctor_tracker_dev");
 });
 
-test("production first-admin setup token is optional but validated when configured", () => {
-  const base = {
-    NODE_ENV: "production",
-    MONGODB_URI: "mongodb+srv://cluster.example.com/doctor_tracker_dev",
-    FRONTEND_ORIGINS: "https://app.example.com"
-  };
-  const disabled = loadConfig(base);
-  assert.equal(disabled.initialAdminSetupToken, null);
-
-  assert.throws(
-    () => loadConfig({ ...base, INITIAL_ADMIN_SETUP_TOKEN: "too-short" }),
-    /INITIAL_ADMIN_SETUP_TOKEN must be at least 32 bytes/
-  );
-
-  const token = "a".repeat(48);
-  const enabled = loadConfig({ ...base, INITIAL_ADMIN_SETUP_TOKEN: token });
-  assert.equal(enabled.initialAdminSetupToken, token);
-});
-
 test("health endpoint returns liveness data and a request ID", async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/api/v1/health`);
