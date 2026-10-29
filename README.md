@@ -25,7 +25,7 @@ pnpm dev
 PowerShell: `Copy-Item .env.example .env`. Configure MongoDB locally; the server fails closed if the database cannot be reached. Never commit `.env` or real secrets.
 
 ## Create the first administrator
-There is no public registration endpoint and no default password. Set `ADMIN_EMAIL` and a strong `ADMIN_PASSWORD` (14–128 characters) through a secure one-time environment injection, then run:
+The frontend `/signup` page and `POST /api/v1/auth/register` endpoint support **first-time administrator setup only**. Registration is available only while the user collection is empty; the API atomically claims a setup marker, creates the first ADMIN, issues an HttpOnly session, and closes registration. Later public signup is rejected; there is no user-controlled role assignment or open account-creation endpoint. The CLI bootstrap below uses the same single-use gate. No default password exists. Set `ADMIN_EMAIL` and a strong `ADMIN_PASSWORD` (14–128 characters) through a secure one-time environment injection, then run:
 ```bash
 pnpm bootstrap:admin
 ```
