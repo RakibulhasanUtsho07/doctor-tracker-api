@@ -1,0 +1,340 @@
+openapi: 3.1.0
+info:
+  title: Doctor Tracker API
+  version: 1.0.0
+  description: Secure administrator API with health/readiness, login/session, doctor CRUD, patient CRUD and dashboard endpoints. Administrator creation is available only through the operator CLI bootstrap command; no public signup endpoint is exposed.
+servers:
+  - url: http://localhost:4000/api/v1
+security:
+  - sessionCookie: []
+paths:
+  /health:
+    get:
+      security: []
+      summary: Liveness check
+      responses:
+        '200':
+          description: API process alive
+        '400':
+          description: Invalid JSON request body
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Request origin is not allowed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: Request body is too large
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '500':
+          description: Unexpected server error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /ready:
+    get:
+      security: []
+      summary: Database readiness check
+      responses:
+        '200': { description: Database connection is ready }
+        '503': { description: Database connection is not ready }
+  /auth/login:
+    post:
+      security: []
+      summary: Administrator login using a server-side session cookie
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                password: { type: string, minLength: 1, maxLength: 128, format: password }
+      responses:
+        '200':
+          description: Session cookie set; CSRF token returned in JSON response
+        '400': { description: Invalid request shape }
+        '401': { description: Invalid credentials }
+        '429': { description: Rate limited }
+  /auth/logout:
+    post:
+      summary: Revoke the current session
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string, minLength: 40 }
+      responses:
+        '204': { description: Session revoked and cookie cleared }
+        '401': { description: Unauthenticated }
+        '403': { description: CSRF token is invalid }
+  /auth/me:
+    get:
+      summary: Current administrator, CSRF token and session expiry
+      responses:
+        '200': { description: Current user, CSRF token and session expiry }
+        '401': { description: Unauthenticated }
+  /dashboard/summary:
+    get:
+      summary: Read all-time totals, patient counts per doctor and UTC creation statistics
+      parameters:
+        - { in: query, name: from, schema: { type: string, format: date }, description: Inclusive UTC calendar start. Defaults to 29 days before today when omitted. }
+        - { in: query, name: to, schema: { type: string, format: date }, description: Inclusive UTC calendar end. Defaults to today when omitted. }
+      responses:
+        '200':
+          description: All-time totals, per-doctor linked patient counts and zero-filled daily creation counts
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardSummaryResponse' }
+        '400': { description: Invalid or future date, range over 366 days, or unknown query parameter }
+        '401': { description: Unauthenticated }
+  /doctors:
+    get:
+      summary: Search, filter and paginate doctors
+      parameters:
+        - { in: query, name: search, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: specialization, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: hospital, schema: { type: string, maxLength: 160 } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200': { description: Paginated doctor list; limit is capped at 100 and deep offsets are bounded }
+        '400': { description: Invalid filters, dates or pagination }
+        '401': { description: Unauthenticated }
+    post:
+      summary: Create doctor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DoctorInput' }
+      responses:
+        '201': { description: Created }
+        '400': { description: Invalid input; mutation fields are allowlisted }
+        '401': { description: Unauthenticated }
+        '403': { description: CSRF token is invalid }
+        '409': { description: A doctor with this normalized email already exists }
+  /doctors/{doctorId}:
+    parameters:
+      - { in: path, name: doctorId, required: true, schema: { type: string } }
+    get:
+      summary: Read doctor
+      responses:
+        '200': { description: Doctor detail }
+        '400': { description: Invalid doctor identifier }
+        '401': { description: Unauthenticated }
+        '404': { description: Not found }
+    patch:
+      summary: Update doctor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DoctorPatch' }
+      responses:
+        '200': { description: Updated }
+        '400': { description: Invalid patch or doctor identifier }
+        '401': { description: Unauthenticated }
+        '403': { description: CSRF token is invalid }
+        '404': { description: Not found }
+        '409': { description: A doctor with this normalized email already exists }
+  /doctors/{doctorId}/patients:
+    parameters:
+      - { in: path, name: doctorId, required: true, schema: { type: string, minLength: 24, maxLength: 24, pattern: "^[a-fA-F0-9]{24}$" } }
+    get:
+      summary: List patients associated with a doctor
+      parameters:
+        - { in: query, name: search, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: condition, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200': { description: Paginated patients for an existing doctor }
+        '400': { description: Invalid doctor identifier or query }
+        '401': { description: Unauthenticated }
+        '404': { description: Doctor not found }
+  /doctors/{doctorId}/patients/{patientId}:
+    parameters:
+      - { in: path, name: doctorId, required: true, schema: { type: string, minLength: 24, maxLength: 24, pattern: "^[a-fA-F0-9]{24}$" } }
+      - { in: path, name: patientId, required: true, schema: { type: string, minLength: 24, maxLength: 24, pattern: "^[a-fA-F0-9]{24}$" } }
+    delete:
+      summary: Detach a patient from this doctor without deleting the patient record
+      parameters:
+        - { in: header, name: X-CSRF-Token, required: true, schema: { type: string, minLength: 40 } }
+      responses:
+        '204': { description: Association removed; patient remains with doctorId null }
+        '400': { description: Invalid doctor or patient identifier }
+        '401': { description: Unauthenticated }
+        '403': { description: CSRF token is invalid }
+        '404': { description: Doctor or associated patient not found }
+  /patients:
+    get:
+      summary: Search/filter/paginate patients
+      parameters:
+        - { in: query, name: search, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: doctorId, schema: { type: string, minLength: 24, maxLength: 24, pattern: "^[a-fA-F0-9]{24}$" } }
+        - { in: query, name: condition, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200': { description: Paginated patient list with bounded offset }
+        '400': { description: Invalid filters, dates or pagination }
+        '401': { description: Unauthenticated }
+    post:
+      summary: Create a patient under an existing doctor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PatientInput' }
+      responses:
+        '201': { description: Created }
+        '400': { description: Invalid input }
+        '401': { description: Unauthenticated }
+        '403': { description: CSRF token is invalid }
+        '404': { description: Doctor not found }
+  /patients/{patientId}:
+    parameters:
+      - { in: path, name: patientId, required: true, schema: { type: string, minLength: 24, maxLength: 24, pattern: "^[a-fA-F0-9]{24}$" } }
+    get:
+      summary: Read one patient
+      responses:
+        '200': { description: Patient detail }
+        '400': { description: Invalid patient identifier }
+        '401': { description: Unauthenticated }
+        '404': { description: Patient not found }
+    patch:
+      summary: Update patient fields or assign to another existing doctor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PatientPatch' }
+      responses:
+        '200': { description: Updated }
+        '400': { description: Invalid patient identifier or patch }
+        '401': { description: Unauthenticated }
+        '403': { description: CSRF token is invalid }
+        '404': { description: Patient or target doctor not found }
+    delete:
+      summary: Permanently delete the patient record
+      parameters:
+        - { in: header, name: X-CSRF-Token, required: true, schema: { type: string, minLength: 40 } }
+      responses:
+        '204': { description: Patient permanently deleted }
+        '400': { description: Invalid patient identifier }
+        '401': { description: Unauthenticated }
+        '403': { description: CSRF token is invalid }
+        '404': { description: Patient not found }
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: dt_session
+      description: HttpOnly opaque session. Production uses __Host-dt_session; browser requests must include credentials.
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            requestId: { type: string, format: uuid }
+    DoctorInput:
+      type: object
+      additionalProperties: false
+      required: [name, specialization, hospital, phone, email]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+        specialization: { type: string, minLength: 2, maxLength: 120 }
+        hospital: { type: string, minLength: 2, maxLength: 160 }
+        phone: { type: string, minLength: 5, maxLength: 30 }
+        email: { type: string, format: email, maxLength: 254 }
+    DoctorPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+        specialization: { type: string, minLength: 2, maxLength: 120 }
+        hospital: { type: string, minLength: 2, maxLength: 160 }
+        phone: { type: string, minLength: 5, maxLength: 30 }
+        email: { type: string, format: email, maxLength: 254 }
+    DashboardSummaryResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [totals, patientsPerDoctor, dateStatistics]
+          properties:
+            totals:
+              type: object
+              required: [doctors, patients]
+              properties:
+                doctors: { type: integer, minimum: 0, description: All doctor records, regardless of date range. }
+                patients: { type: integer, minimum: 0, description: All patient records, including detached records. }
+            patientsPerDoctor:
+              type: array
+              description: All doctors, including zero-count doctors; only currently associated patients count here.
+              items:
+                type: object
+                required: [doctorId, doctorName, patientCount]
+                properties:
+                  doctorId: { type: string, minLength: 24, maxLength: 24 }
+                  doctorName: { type: string }
+                  patientCount: { type: integer, minimum: 0 }
+            dateStatistics:
+              type: object
+              required: [from, to, days]
+              properties:
+                from: { type: string, format: date }
+                to: { type: string, format: date }
+                days:
+                  type: array
+                  items:
+                    type: object
+                    required: [date, doctorsCreated, patientsCreated]
+                    properties:
+                      date: { type: string, format: date }
+                      doctorsCreated: { type: integer, minimum: 0 }
+                      patientsCreated: { type: integer, minimum: 0 }
+        meta:
+          type: object
+          required: [requestId]
+          properties:
+            requestId: { type: string, format: uuid }
+    PatientInput:
+      type: object
+      additionalProperties: false
+      required: [doctorId, name]
+      properties:
+        doctorId: { type: string, minLength: 24, maxLength: 24, pattern: "^[a-fA-F0-9]{24}$" }
+        name: { type: string, minLength: 2, maxLength: 120 }
+        condition: { type: string, minLength: 1, maxLength: 100, description: Optional free text; no controlled vocabulary is specified. }
+    PatientPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        doctorId: { type: string, minLength: 24, maxLength: 24, pattern: "^[a-fA-F0-9]{24}$" }
+        name: { type: string, minLength: 2, maxLength: 120 }
+        condition: { type: string, minLength: 1, maxLength: 100, description: Optional free text; no controlled vocabulary is specified. }
